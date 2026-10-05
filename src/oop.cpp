@@ -1,4 +1,18 @@
-// oop.cpp - implementation of the C++ layer (users + recommendation).
+// ====================================================================
+// FILE    : oop.cpp
+// OWNER   : Member 3 (OOP & Recommendation)
+// TOPICS  : classes, inheritance, polymorphism (see oop.h for the class map)
+// NOT HERE: linked list & files (list.c), hashing / BST / sorting (search.c)
+//           - this file only CALLS those C functions.
+//
+// SECTIONS IN THIS FILE
+//   A. input helpers
+//   B. recommendation rules + Recommender   (genre, author, reading history)
+//   C. features common to all users         (User class)
+//   D. Student menu
+//   E. Admin menu
+//   F. login (role-based: creates a Student or an Admin object)
+// ====================================================================
 #include <iostream>
 #include <cstdio>
 #include <cstdlib>
@@ -7,7 +21,7 @@
 
 using namespace std;
 
-// ================= input helpers =================
+// ================= A. input helpers =================
 string readLine(const char *prompt) {
     string s;
     cout << prompt;
@@ -23,21 +37,24 @@ int readInt(const char *prompt) {
     return atoi(s.c_str());
 }
 
-// ================= recommendation rules =================
+// ================= B. recommendation rules =================
+// Rule stores the user's reading history; children decide the scoring.
 Rule::Rule(const int ids[], int n) {
     count = n;
     for (int i = 0; i < n; i++) history[i] = ids[i];
 }
 
+// +2 points for every book in the history that has the SAME GENRE
 int GenreRule::score(const Book *b) {
     int s = 0;
     for (int i = 0; i < count; i++) {
-        Book *old = findById(history[i]);
+        Book *old = findById(history[i]);          // hashing lookup (search.c)
         if (old != NULL && strcmp(old->genre, b->genre) == 0) s += 2;
     }
     return s;
 }
 
+// +3 points for every book in the history that has the SAME AUTHOR
 int AuthorRule::score(const Book *b) {
     int s = 0;
     for (int i = 0; i < count; i++) {
@@ -47,63 +64,65 @@ int AuthorRule::score(const Book *b) {
     return s;
 }
 
-int PopularityRule::score(const Book *b) {
-    return b->timesIssued;
-}
-
+// Recommend books for one user:
+//   1. read the user's reading history (data/issues.txt via list.c)
+//   2. give every book the user has NOT read a score = genre points + author points
+//   3. sort by score (highest first) and print the top N
 void Recommender::recommend(const string &user, int topN) {
     int history[MAX_HISTORY];
     int n = getUserHistory(user.c_str(), history, MAX_HISTORY);
 
-    // three different rules, all used through the same base-class pointer
-    Rule *rules[3];
-    rules[0] = new GenreRule(history, n);
-    rules[1] = new AuthorRule(history, n);
-    rules[2] = new PopularityRule(history, n);
-
-    // count candidate books
-    int total = 0;
-    for (Book *b = getHead(); b != NULL; b = b->next) total++;
-    if (total == 0) {
-        cout << "No books in the library.\n";
-        for (int i = 0; i < 3; i++) delete rules[i];
+    if (n == 0) {                       // recommendation needs reading history
+        cout << "No reading history yet. Issue a few books first,\n"
+             << "then ask again - suggestions are based on what you have read.\n";
         return;
     }
 
-    Book **cand = new Book *[total];
-    int *score = new int[total];
+    // two different rules, both used through the SAME base-class pointer type
+    Rule *rules[2];
+    rules[0] = new GenreRule(history, n);
+    rules[1] = new AuthorRule(history, n);
+
+    int total = 0;                      // count the books in the library
+    for (Book *b = getHead(); b != NULL; b = b->next) total++;
+
+    Book **cand = new Book *[total + 1];    // candidate books
+    int *score = new int[total + 1];        // their scores
     int m = 0;
 
     for (Book *b = getHead(); b != NULL; b = b->next) {
         bool alreadyRead = false;
         for (int i = 0; i < n; i++)
             if (history[i] == b->id) alreadyRead = true;
-        if (alreadyRead) continue;           // do not recommend what they already read
+        if (alreadyRead) continue;          // never recommend a book already read
 
         int s = 0;
-        for (int r = 0; r < 3; r++) s += rules[r]->score(b);   // polymorphic call
-        cand[m] = b;
-        score[m] = s;
-        m++;
+        for (int r = 0; r < 2; r++) s += rules[r]->score(b);   // POLYMORPHIC call
+        if (s > 0) {                        // keep only books that match something
+            cand[m] = b;
+            score[m] = s;
+            m++;
+        }
     }
 
-    // sort by score (highest first) - simple selection sort
-    for (int i = 0; i < m - 1; i++) {
-        int best = i;
-        for (int j = i + 1; j < m; j++)
-            if (score[j] > score[best]) best = j;
-        Book *tb = cand[i]; cand[i] = cand[best]; cand[best] = tb;
-        int ts = score[i];  score[i] = score[best]; score[best] = ts;
+    // insertion sort, highest score first (equal scores keep file order)
+    for (int i = 1; i < m; i++) {
+        Book *kb = cand[i];
+        int ks = score[i];
+        int j = i - 1;
+        while (j >= 0 && score[j] < ks) {
+            cand[j + 1] = cand[j];
+            score[j + 1] = score[j];
+            j--;
+        }
+        cand[j + 1] = kb;
+        score[j + 1] = ks;
     }
-
-    if (n == 0)
-        cout << "(No reading history yet - showing the most popular books.)\n";
-    else
-        cout << "Based on your reading history (genre, author, popularity):\n";
 
     if (m == 0) {
-        cout << "You have already read every book in the library!\n";
+        cout << "No similar unread books found right now.\n";
     } else {
+        cout << "Based on your reading history (genre and author):\n";
         printf("%-5s %-40s %-20s %-12s %s\n", "ID", "Title", "Author", "Genre", "Score");
         printf("---------------------------------------------------------------------------------------\n");
         for (int i = 0; i < m && i < topN; i++)
@@ -113,10 +132,10 @@ void Recommender::recommend(const string &user, int topN) {
 
     delete[] cand;
     delete[] score;
-    for (int i = 0; i < 3; i++) delete rules[i];
+    for (int i = 0; i < 2; i++) delete rules[i];
 }
 
-// ================= common user features =================
+// ================= C. common user features (User class) =================
 void User::searchByTitle() {
     string word = readLine("Enter title (or part of it): ");
     if (word.empty()) { cout << "Nothing entered.\n"; return; }
@@ -146,7 +165,7 @@ void User::viewSorted() {
     showSorted(mode);
 }
 
-// ================= Student =================
+// ================= D. Student (child of User) =================
 void Student::menu() {
     Recommender rec;
     int choice;
@@ -183,7 +202,7 @@ void Student::menu() {
     } while (choice != 0);
 }
 
-// ================= Admin =================
+// ================= E. Admin (child of User) =================
 void Admin::addNewBook() {
     int id = readInt("Book ID (number): ");
     if (id <= 0) { cout << "ID must be a positive number.\n"; return; }
@@ -262,7 +281,9 @@ void Admin::menu() {
     } while (choice != 0);
 }
 
-// ================= login =================
+// ================= F. login (role-based access) =================
+// users.txt decides the role; a Student or an Admin object is created and
+// returned as a User* - the caller does not need to know which one it is.
 User *loginUser(const string &name, const string &password) {
     FILE *f = fopen(USERS_FILE, "r");
     char line[200], u[NAME_LEN], p[NAME_LEN], role[20];

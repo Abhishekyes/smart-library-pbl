@@ -1,5 +1,18 @@
-/* library.h - shared header for the C core (list.c, search.c) and the C++ layer.
-   The extern "C" part lets C++ code call these C functions. */
+/* ====================================================================
+ * FILE    : library.h
+ * OWNER   : Member 1 (Core Engine) - but EVERY member uses this file
+ * PURPOSE : The one shared header. It holds
+ *             1) the Book structure (one node of the linked list), and
+ *             2) the list of C functions that the C++ code is allowed to call.
+ * TOPICS  : Linked list node (Data Structures in C)
+ * NOTE    : The extern "C" block is only there so that the C++ files
+ *           (oop.cpp, main.cpp) can call the C functions. Nothing else.
+ *
+ * WHO WRITES WHAT (3-member split)
+ *   Member 1 -> list.c    : linked list, file handling, issue / return
+ *   Member 2 -> search.c  : hashing, BST, sorting     (+ main.cpp, tests)
+ *   Member 3 -> oop.h/.cpp: classes, inheritance, polymorphism, recommendation
+ * ==================================================================== */
 #ifndef LIBRARY_H
 #define LIBRARY_H
 
@@ -23,11 +36,11 @@ typedef struct Book {
     char author[AUTHOR_LEN];
     char genre[GENRE_LEN];
     int  available;     /* 1 = on shelf, 0 = issued */
-    int  timesIssued;   /* popularity counter */
+    int  timesIssued;   /* how many times issued (used for "sort by popularity") */
     struct Book *next;
 } Book;
 
-/* ---------- list.c : linked list, file handling, issue/return ---------- */
+/* ---------- list.c  [Member 1] : linked list, file handling, issue/return ---------- */
 void  loadBooks(void);
 void  saveBooks(void);
 Book *getHead(void);
@@ -42,7 +55,7 @@ int   getUserHistory(const char *user, int ids[], int max);
 void  showUserHistory(const char *user);
 void  displayIssuedBooks(void);
 
-/* ---------- search.c : hashing, BST, sorting ---------- */
+/* ---------- search.c [Member 2] : hashing, BST, sorting ---------- */
 void  buildIndexes(void);                  /* rebuild hash table + BST from list */
 Book *findById(int id);                    /* hashing */
 Book *findByTitle(const char *title);      /* BST, exact title */

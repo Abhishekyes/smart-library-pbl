@@ -16,7 +16,8 @@ Nothing outside these concepts is used (no STL containers, no database, no exter
 | `src/main.cpp` | Login screen + main loop |
 | `data/` | `books.txt`, `users.txt`, `issues.txt` (live data) |
 | `data_sample/` | Untouched copy of the sample data (copy back to reset) |
-| `run_tests.sh` | Runs 10 scripted tests -> `docs/test_output.txt` |
+| `run_tests.sh` | Runs 14 scripted tests, prints PASS/FAIL (`bash run_tests.sh`) |
+| `docs/test_output.txt` | Saved output of the last test run |
 | `docs/Project_Report.docx` | Full project report |
 | `docs/Viva_QnA.md` | Likely viva questions with simple answers |
 | `Makefile` | Build file |
@@ -41,7 +42,7 @@ Always run from the project folder (data files are opened as `data/books.txt`).
 
 ## Suggested demo order (5 minutes)
 1. Login as `priya` -> **1** search `harry` (partial, A-Z via BST) -> **2** search ID `105` (hashing) -> **3** sort by popularity.
-2. **7** Recommend -> shows 202, 204, 101, 103, 205 (explain: genre +2, author +3, popularity).
+2. **7** Recommend -> shows 204 and 202 (score 7), then three Programming books (score 2). Explain: genre +2, author +3, from reading history.
 3. **4** issue book 204 -> issue again (refused) -> **5** return it -> **6** history.
 4. Logout, login as `admin` -> add a book, delete an issued book (refused), view issued books, create a student.
 5. Show `data/books.txt` changing live.
@@ -49,11 +50,18 @@ Always run from the project folder (data files are opened as `data/books.txt`).
 ## 3-member work division
 | Member | Files | Concepts | Report sections | Test cases |
 |---|---|---|---|---|
-| **1 - Core Engine + Docs** | `library.h`, `list.c`, `Makefile`, `data/` | Linked list, file handling, issue/return | 1, 2, 3, 4, 6, 7, 10, 12 | T5, T10 |
-| **2 - Search + Main + Testing** | `search.c`, `main.cpp`, `run_tests.sh` | Hashing, BST, sorting, program flow | 5 (hash/BST/sort), 11 | T1-T4, T8, T9 |
-| **3 - OOP + Recommendation** | `oop.h`, `oop.cpp` | Classes, inheritance, polymorphism, recommender, login | 5 (OOP), 8, 9 | T6, T7, T9 |
+| **1 - Core Engine + Docs** | `library.h`, `list.c`, `Makefile`, `data/` | Linked list, file handling, issue/return | 1, 2, 3, 4, 6, 7, 10, 12 | T5 |
+| **2 - Search + Main + Testing** | `search.c`, `main.cpp`, `run_tests.sh` | Hashing, BST, sorting, program flow | 5 (hash/BST/sort), 11 | T1-T4, T8, T9, T11, T12 |
+| **3 - OOP + Recommendation** | `oop.h`, `oop.cpp` | Classes, inheritance, polymorphism, recommender, login | 5 (OOP), 8, 9 | T6, T6b, T7 |
 
 Everyone: read all code once, and be able to demo + explain your own files.
 
 ## Known limits (also in report)
 Plain-text passwords, unbalanced BST, insertion sort for big lists, one copy per book, no due dates/fines.
+
+## Where to find each member's work in the code
+Every source file starts with a comment block that says **OWNER**, **TOPICS** (which course concept it uses),
+what is **NOT** in that file, and a list of **SECTIONS**. Search for `OWNER` to see the split quickly:
+```
+grep -n "OWNER" src/*
+```

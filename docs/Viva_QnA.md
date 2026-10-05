@@ -18,9 +18,9 @@
 - **Why do hash table and BST store pointers?** No duplicate data; an issue/return updates the book everywhere. They are rebuilt on add/delete/load.
 
 ## Member 3 (oop.cpp)
-- **Where is inheritance?** `Student` and `Admin` inherit `User`; `GenreRule`, `AuthorRule`, `PopularityRule` inherit `Rule`.
+- **Where is inheritance?** `Student` and `Admin` inherit `User`; `GenreRule` and `AuthorRule` inherit `Rule`.
 - **Where is polymorphism?** `user->menu()` runs the Student or Admin menu; `rules[r]->score(book)` runs the right rule.
 - **Why a virtual destructor?** So `delete` on a base pointer cleans the child object correctly.
-- **How does recommendation score?** Genre +2 per matching past book, author +3 per matching past book, plus times issued. Already-read books excluded. Top 5 shown.
-- **New user with no history?** Only popularity counts, so most-borrowed books appear (cold start).
+- **How does recommendation score?** Genre +2 per matching past book, author +3 per matching past book. Already-read books excluded, only scores above 0 shown, top 5.
+- **New user with no history?** Recommendation is based on reading history, so the program asks them to issue a few books first.
 - **Weakness?** Ignores book content; weak with very little history.

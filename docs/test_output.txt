@@ -1,12 +1,10 @@
-==================================================
-TEST: T1 Wrong login rejected
-==================================================
+=== T1 wrong login rejected
   Intelligent Digital Library & Book Recommendation
 Wrong username or password.
 Thank you. Goodbye!
-==================================================
-TEST: T2 Student search by title (exact + partial, case-insensitive)
-==================================================
+>>> PASS
+
+=== T2 BST title search: exact, partial, none
   Intelligent Digital Library & Book Recommendation
 ID    Title                                    Author               Genre        Status    Issued
 203   The Hobbit                               J R R Tolkien        Fantasy      Available 2
@@ -15,17 +13,17 @@ ID    Title                                    Author               Genre       
 201   Harry Potter and the Sorcerer's Stone    J K Rowling          Fantasy      Available 3
 No book found with "xyz".
 Thank you. Goodbye!
-==================================================
-TEST: T3 Student search by ID (hashing)
-==================================================
+>>> PASS
+
+=== T3 hashing search by ID
   Intelligent Digital Library & Book Recommendation
 ID    Title                                    Author               Genre        Status    Issued
 105   Object Oriented Programming with C++     E Balagurusamy       Programming  Issued    1
 No book with ID 999.
 Thank you. Goodbye!
-==================================================
-TEST: T4 Sorting by title, author, popularity
-==================================================
+>>> PASS
+
+=== T4a sort by title (first = A Brief History)
   Intelligent Digital Library & Book Recommendation
 Sort by: 1) Title  2) Author  3) Popularity
 ID    Title                                    Author               Genre        Status    Issued
@@ -54,6 +52,11 @@ ID    Title                                    Author               Genre       
 208   Three Mistakes of My Life                Chetan Bhagat        Fiction      Available 0
 206   To Kill a Mockingbird                    Harper Lee           Fiction      Available 0
 301   Wings of Fire                            A P J Abdul Kalam    Biography    Available 2
+Thank you. Goodbye!
+>>> PASS
+
+=== T4b sort by author (first = A P J Abdul Kalam)
+  Intelligent Digital Library & Book Recommendation
 Sort by: 1) Title  2) Author  3) Popularity
 ID    Title                                    Author               Genre        Status    Issued
 301   Wings of Fire                            A P J Abdul Kalam    Biography    Available 2
@@ -81,6 +84,11 @@ ID    Title                                    Author               Genre       
 106   Introduction to Algorithms               Thomas Cormen        Programming  Available 1
 303   Steve Jobs                               Walter Isaacson      Biography    Available 1
 103   Let Us C                                 Yashavant Kanetkar   Programming  Available 2
+Thank you. Goodbye!
+>>> PASS
+
+=== T4c sort by popularity (issued 3 times first)
+  Intelligent Digital Library & Book Recommendation
 Sort by: 1) Title  2) Author  3) Popularity
 ID    Title                                    Author               Genre        Status    Issued
 201   Harry Potter and the Sorcerer's Stone    J K Rowling          Fantasy      Available 3
@@ -109,9 +117,9 @@ ID    Title                                    Author               Genre       
 209   Five Point Someone                       Chetan Bhagat        Fiction      Available 0
 503   The Selfish Gene                         Richard Dawkins      Science      Available 0
 Thank you. Goodbye!
-==================================================
-TEST: T5 Issue, issue-again, return flow
-==================================================
+>>> PASS
+
+=== T5 issue / issue again / wrong id / return / return again
   Intelligent Digital Library & Book Recommendation
 Book issued successfully.
 Sorry, this book is already issued to someone else.
@@ -119,93 +127,56 @@ No book with ID 999.
 Book returned successfully.
 You have not issued a book with this ID.
 Thank you. Goodbye!
-==================================================
-TEST: T6 Recommendation for student with history (priya: Fantasy + Programming)
-==================================================
+>>> PASS
+
+=== T6 recommendation (genre + author) for priya
   Intelligent Digital Library & Book Recommendation
-ID    Title                                    Status    
-201   Harry Potter and the Sorcerer's Stone    RETURNED  
-203   The Hobbit                               RETURNED  
-102   Data Structures Using C                  ISSUED    
-Based on your reading history (genre, author, popularity):
+Based on your reading history (genre and author):
 ID    Title                                    Author               Genre        Score
-202   Harry Potter and the Chamber of Secrets  J K Rowling          Fantasy      8
 204   The Lord of the Rings                    J R R Tolkien        Fantasy      7
-101   The C Programming Language               Brian Kernighan      Programming  5
-103   Let Us C                                 Yashavant Kanetkar   Programming  4
-205   The Alchemist                            Paulo Coelho         Fiction      3
+202   Harry Potter and the Chamber of Secrets  J K Rowling          Fantasy      7
+105   Object Oriented Programming with C++     E Balagurusamy       Programming  2
+101   The C Programming Language               Brian Kernighan      Programming  2
+103   Let Us C                                 Yashavant Kanetkar   Programming  2
 Thank you. Goodbye!
-==================================================
-TEST: T7 Recommendation for new student with no history (most popular)
-==================================================
+>>> PASS
+
+=== T6b recommendation never shows already-read books
+>>> PASS (not present: 203   The Hobbit)
+
+=== T7 new student with no history gets a clear message
   Intelligent Digital Library & Book Recommendation
 Student account created.
-(No reading history yet - showing the most popular books.)
-ID    Title                                    Author               Genre        Score
-201   Harry Potter and the Sorcerer's Stone    J K Rowling          Fantasy      3
-101   The C Programming Language               Brian Kernighan      Programming  3
-205   The Alchemist                            Paulo Coelho         Fiction      3
-301   Wings of Fire                            A P J Abdul Kalam    Biography    2
-102   Data Structures Using C                  Reema Thareja        Programming  2
+No reading history yet. Issue a few books first,
+then ask again - suggestions are based on what you have read.
 Thank you. Goodbye!
-==================================================
-TEST: T8 Admin add book, duplicate id, delete issued book, delete free book
-==================================================
+>>> PASS
+
+=== T8 admin add / duplicate / delete issued / delete free
   Intelligent Digital Library & Book Recommendation
 Book added.
 A book with this ID already exists.
 This book is currently issued, so it cannot be deleted.
 Book deleted.
-Sort by: 1) Title  2) Author  3) Popularity
-ID    Title                                    Author               Genre        Status    Issued
-501   A Brief History of Time                  Stephen Hawking      Science      Available 0
-402   And Then There Were None                 Agatha Christie      Mystery      Available 1
-104   C++ Primer                               Stanley Lippman      Programming  Available 0
-502   Cosmos                                   Carl Sagan           Science      Available 1
-102   Data Structures Using C                  Reema Thareja        Programming  Issued    2
-209   Five Point Someone                       Chetan Bhagat        Fiction      Available 0
-202   Harry Potter and the Chamber of Secrets  J K Rowling          Fantasy      Available 1
-201   Harry Potter and the Sorcerer's Stone    J K Rowling          Fantasy      Available 3
-106   Introduction to Algorithms               Thomas Cormen        Programming  Available 1
-103   Let Us C                                 Yashavant Kanetkar   Programming  Available 2
-403   Murder on the Orient Express             Agatha Christie      Mystery      Available 1
-302   My Experiments with Truth                M K Gandhi           Biography    Available 0
-105   Object Oriented Programming with C++     E Balagurusamy       Programming  Issued    1
-401   Sherlock Holmes Complete Stories         Arthur Conan Doyle   Mystery      Available 2
-303   Steve Jobs                               Walter Isaacson      Biography    Available 1
-205   The Alchemist                            Paulo Coelho         Fiction      Available 3
-101   The C Programming Language               Brian Kernighan      Programming  Available 3
-404   The Girl with the Dragon Tattoo          Stieg Larsson        Mystery      Available 0
-203   The Hobbit                               J R R Tolkien        Fantasy      Available 2
-207   The Kite Runner                          Khaled Hosseini      Fiction      Available 0
-204   The Lord of the Rings                    J R R Tolkien        Fantasy      Available 0
-503   The Selfish Gene                         Richard Dawkins      Science      Available 0
-208   Three Mistakes of My Life                Chetan Bhagat        Fiction      Available 0
-206   To Kill a Mockingbird                    Harper Lee           Fiction      Available 0
-301   Wings of Fire                            A P J Abdul Kalam    Biography    Available 2
 Thank you. Goodbye!
-==================================================
-TEST: T9 Admin views issued books and duplicate student username
-==================================================
+>>> PASS
+
+=== T9 admin issued report + duplicate username
   Intelligent Digital Library & Book Recommendation
 Issued to    ID    Title                                   
 priya        102   Data Structures Using C                 
 rahul        105   Object Oriented Programming with C++    
 This username already exists.
 Thank you. Goodbye!
-==================================================
-TEST: T10 Data saved in files (reload check)
-==================================================
+>>> PASS
+
+=== T11 invalid menu choice does not crash
   Intelligent Digital Library & Book Recommendation
-Book issued successfully.
+Invalid choice.
 Thank you. Goodbye!
---- books.txt line for 201 after T10 (should be 0|4) ---
-201|Harry Potter and the Sorcerer's Stone|J K Rowling|Fantasy|0|4
---- issues.txt after T10 ---
-priya|201|RETURNED
-priya|203|RETURNED
-priya|102|ISSUED
-rahul|101|RETURNED
-rahul|401|RETURNED
-rahul|105|ISSUED
-rahul|201|ISSUED
+>>> PASS
+
+=== T12 data saved to files
+>>> PASS
+
+RESULT: 14 passed, 0 failed

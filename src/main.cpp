@@ -1,4 +1,12 @@
-// main.cpp - starting point: login screen, then the menu of the logged-in user.
+// ====================================================================
+// FILE    : main.cpp
+// OWNER   : Member 2 (program flow) - small file, uses everyone's code
+// PURPOSE : starting point. Flow of the whole program:
+//             1. loadBooks()  [list.c]  -> books file into the linked list,
+//                                          hash table + BST are built
+//             2. login screen  [oop.cpp] -> Student or Admin object
+//             3. user->menu()            -> the menu of that role (polymorphism)
+// ====================================================================
 #include <iostream>
 #include "oop.h"
 

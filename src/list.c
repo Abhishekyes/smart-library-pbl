@@ -1,5 +1,21 @@
-/* list.c - Linked list of books, file handling, issue / return.
-   Concepts used: linked list, file handling (flat text files). */
+/* ====================================================================
+ * FILE    : list.c
+ * OWNER   : Member 1 (Core Engine)
+ * PPT     : "Library Core Engine - built in C using DSA"
+ * TOPICS  : 1) LINKED LIST  - every book is a node, all books are chained
+ *           2) FILE HANDLING - books / issue history saved in text files
+ *           3) Book operations: add, delete, display, issue, return
+ * NOT HERE: searching & sorting -> search.c (Member 2)
+ *           users, menus, recommendation -> oop.cpp (Member 3)
+ *
+ * SECTIONS IN THIS FILE
+ *   A. Linked list helpers        (freeList, appendNode)
+ *   B. Books file                 (loadBooks, saveBooks)
+ *   C. Add / delete a book        (addBook, deleteBook)
+ *   D. Display functions
+ *   E. Issue history file         (readRecords, writeRecords)
+ *   F. Issue / return / history   (issueBook, returnBook, getUserHistory ...)
+ * ==================================================================== */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +45,7 @@ static void cleanText(char *dest, const char *src, int size) {
         if (dest[i] == '|' || dest[i] == '\n') dest[i] = ' ';
 }
 
-/* ---------------- books file ---------------- */
+/* ---------------- A + B. linked list helpers and books file ---------------- */
 static void freeList(void) {
     Book *cur = head, *nxt;
     while (cur != NULL) {
@@ -49,6 +65,7 @@ static void appendNode(Book *node) {
     cur->next = node;
 }
 
+/* read data/books.txt, create one linked-list node per line */
 void loadBooks(void) {
     FILE *f = fopen(BOOKS_FILE, "r");
     char line[300];
@@ -74,6 +91,7 @@ void loadBooks(void) {
     buildIndexes();
 }
 
+/* write the whole linked list back to data/books.txt */
 void saveBooks(void) {
     FILE *f = fopen(BOOKS_FILE, "w");
     Book *cur;
@@ -84,7 +102,9 @@ void saveBooks(void) {
     fclose(f);
 }
 
-/* ---------------- add / delete ---------------- */
+/* ---------------- C. add / delete a book (linked list operations) ---------------- */
+/* add a new book at the END of the linked list, then save the file.
+   returns 1 = added, 0 = a book with this id already exists */
 int addBook(int id, const char *title, const char *author, const char *genre) {
     Book *b;
     if (findById(id) != NULL) return 0;          /* duplicate id */
@@ -102,6 +122,8 @@ int addBook(int id, const char *title, const char *author, const char *genre) {
     return 1;
 }
 
+/* delete a node: link the previous node to the next one, then free() it.
+   returns 1 = deleted, 0 = id not found, -1 = book is issued (not allowed) */
 int deleteBook(int id) {
     Book *cur = head, *prev = NULL;
     while (cur != NULL && cur->id != id) {
@@ -118,7 +140,7 @@ int deleteBook(int id) {
     return 1;
 }
 
-/* ---------------- display ---------------- */
+/* ---------------- D. display ---------------- */
 void printBookHeader(void) {
     printf("%-5s %-40s %-20s %-12s %-9s %s\n",
            "ID", "Title", "Author", "Genre", "Status", "Issued");
@@ -138,7 +160,9 @@ void displayAllBooks(void) {
     for (cur = head; cur != NULL; cur = cur->next) displayBook(cur);
 }
 
-/* ---------------- issue history file ---------------- */
+/* ---------------- E + F. issue history file and issue / return ----------------
+   data/issues.txt keeps one line per borrow:  user|bookId|ISSUED or RETURNED.
+   This same file is the "reading history" used by the recommendation engine. */
 static int readRecords(void) {
     FILE *f = fopen(ISSUES_FILE, "r");
     char line[200];
@@ -162,6 +186,8 @@ static void writeRecords(int n) {
     fclose(f);
 }
 
+/* give a book to a user: mark it not available and add an ISSUED line.
+   returns 1 = ok, 0 = no such book, -1 = already issued to someone */
 int issueBook(const char *user, int id) {
     Book *b = findById(id);
     FILE *f;
@@ -178,6 +204,8 @@ int issueBook(const char *user, int id) {
     return 1;
 }
 
+/* take a book back: change that user's ISSUED line to RETURNED and mark the
+   book available again. returns 1 = ok, 0 = this user has not issued it */
 int returnBook(const char *user, int id) {
     int n = readRecords(), i;
     Book *b;
@@ -220,6 +248,7 @@ void showUserHistory(const char *user) {
     if (!found) printf("No reading history yet.\n");
 }
 
+/* admin report: who currently holds which book */
 void displayIssuedBooks(void) {
     int n = readRecords(), i, found = 0;
     Book *b;

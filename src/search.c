@@ -1,14 +1,33 @@
-/* search.c - Hashing (search by ID), Binary Search Tree (search by title),
-   sorting (title / author / popularity).
-   Both the hash table and the BST only store pointers to the linked-list nodes,
-   so they are rebuilt whenever a book is added, deleted or the file is loaded. */
+/* ====================================================================
+ * FILE    : search.c
+ * OWNER   : Member 2 (Search & Algorithms)
+ * PPT     : "Fast title search via Binary Search Tree",
+ *           "Instant lookup by unique ID via hashing",
+ *           "Sorting by title, author, or popularity"
+ * TOPICS  : 1) HASHING (chaining)          -> find a book by its ID
+ *           2) BINARY SEARCH TREE (BST)    -> find a book by its title
+ *           3) SORTING (insertion sort)    -> by title / author / popularity
+ * NOT HERE: linked list & files -> list.c (Member 1)
+ *           menus, recommendation -> oop.cpp (Member 3)
+ *
+ * HOW IT FITS: the hash table and the BST only store POINTERS to the
+ * linked-list nodes created in list.c, so no data is copied. They are
+ * rebuilt (buildIndexes) whenever a book is added, deleted or loaded.
+ *
+ * SECTIONS IN THIS FILE
+ *   A. small helpers (compareText, containsText)
+ *   B. Hashing        (hashInsert, findById)
+ *   C. BST            (bstInsert, findByTitle, searchTitleContains)
+ *   D. buildIndexes   (fills both structures)
+ *   E. Sorting        (showSorted)
+ * ==================================================================== */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "library.h"
 
-/* ---------------- helpers ---------------- */
+/* ---------------- A. helpers ---------------- */
 /* compare two texts ignoring upper/lower case (like strcmp) */
 static int compareText(const char *a, const char *b) {
     while (*a && *b) {
@@ -30,7 +49,9 @@ static int containsText(const char *text, const char *word) {
     return 0;
 }
 
-/* ================= HASHING (by book ID) ================= */
+/* ================= B. HASHING (by book ID) =================
+   hash function: id % 101 gives the slot number; books that land in the
+   same slot are chained in a small linked list (chaining). */
 #define HASH_SIZE 101
 
 typedef struct HNode {
@@ -70,7 +91,8 @@ Book *findById(int id) {
     return NULL;
 }
 
-/* ================= BINARY SEARCH TREE (by title) ================= */
+/* ================= C. BINARY SEARCH TREE (by title) =================
+   smaller titles go to the left, bigger ones to the right (A-Z order). */
 typedef struct TNode {
     Book *book;
     struct TNode *left, *right;
@@ -129,7 +151,7 @@ int searchTitleContains(const char *word) {
     return count;
 }
 
-/* ---- build / rebuild both structures ---- */
+/* ---- D. build / rebuild both structures from the linked list ---- */
 void buildIndexes(void) {
     Book *cur;
     hashClear();
@@ -141,7 +163,8 @@ void buildIndexes(void) {
     }
 }
 
-/* ================= SORTING (insertion sort) ================= */
+/* ================= E. SORTING (insertion sort) =================
+   mode 1 = title A-Z, mode 2 = author A-Z, mode 3 = most issued first */
 /* returns >0 if a should come AFTER b for the chosen mode */
 static int isAfter(const Book *a, const Book *b, int mode) {
     if (mode == 1) return compareText(a->title, b->title) > 0;
