@@ -51,9 +51,9 @@ public:
     virtual void menu() = 0;               // each role has its OWN menu (polymorphism)
 
     // features common to every user (written once here, used by both children)
-    void searchByTitle();      // calls the BST in search.c
-    void searchById();         // calls the hash table in search.c
-    void viewSorted();         // calls the sorting in search.c
+    void searchByTitle();      // calls the BST in library.c (PART 2)
+    void searchById();         // calls the hash table in library.c (PART 2)
+    void viewSorted();         // calls the sorting in library.c (PART 2)
 };
 
 class Student : public User {
@@ -101,8 +101,8 @@ int readInt(const char *prompt) {
 //        +3 for each history book with the same author
 //   3. sort by score (highest first) and print the top books
 void Recommender::recommend(const string &user) {
-    int history[MAX_HISTORY];
-    int n = getUserHistory(user.c_str(), history, MAX_HISTORY);
+    int history[MAX_HISTORY];          // ids of books this user borrowed before
+    int n = getUserHistory(user.c_str(), history, MAX_HISTORY);   // C function; returns how many
 
     if (n == 0) {                       // no history = nothing to learn from
         cout << "No reading history yet. Issue a few books first,\n"
@@ -200,7 +200,7 @@ void Student::menu() {
              << "0. Logout\n";
         choice = readInt("Choice: ");
         cout << "\n";
-        if (choice == 1) searchByTitle();
+        if (choice == 1) searchByTitle();      // inherited from User
         else if (choice == 2) searchById();
         else if (choice == 3) viewSorted();
         else if (choice == 4) {
@@ -340,13 +340,13 @@ int main() {
         if (choice == 1) {
             string name = readLine("Username: ");
             string pass = readLine("Password: ");
-            User *u = loginUser(name, pass);
+            User *u = loginUser(name, pass);    // Student or Admin object, or NULL
             if (u == NULL) {
                 cout << "Wrong username or password.\n";
             } else {
                 cout << "\nWelcome, " << u->getName() << " (" << u->getRole() << ")\n";
                 u->menu();          // polymorphism: Student or Admin menu runs
-                delete u;
+                delete u;                       // free the object after logout
             }
         } else if (choice != 0) {
             cout << "Invalid choice.\n";

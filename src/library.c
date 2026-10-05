@@ -25,7 +25,7 @@
 
 #define MAX_RECORDS 2000
 
-static Book *head = NULL;
+static Book *head = NULL;   /* head = first book; the whole list hangs from it (NULL = empty) */
 
 /* one line of data/issues.txt:  user|bookId|ISSUED  (or RETURNED) */
 typedef struct {
@@ -34,15 +34,15 @@ typedef struct {
     char status[10];
 } Record;
 
-static Record records[MAX_RECORDS];
+static Record records[MAX_RECORDS];   /* issues.txt lines kept in memory */
 
-Book *getHead(void) { return head; }
+Book *getHead(void) { return head; }   /* other files read the list through this */
 
 /* remove '|' and newline because '|' separates fields in our files */
 static void cleanText(char *dest, const char *src, int size) {
     int i;
-    strncpy(dest, src, size - 1);
-    dest[size - 1] = '\0';
+    strncpy(dest, src, size - 1);            /* copy at most size-1 letters (no overflow) */
+    dest[size - 1] = '\0';                       /* '\0' = end-of-text marker */
     for (i = 0; dest[i] != '\0'; i++)
         if (dest[i] == '|' || dest[i] == '\n') dest[i] = ' ';
 }
@@ -73,31 +73,31 @@ static int countBooks(void) {
 
 /* ---------------- A + B. linked list helpers and books file ---------------- */
 static void freeList(void) {
-    Book *cur = head, *nxt;
+    Book *cur = head, *nxt;                    /* cur = node to free, nxt = remembered next node */
     while (cur != NULL) {
-        nxt = cur->next;
-        free(cur);
+        nxt = cur->next;                         /* remember next BEFORE freeing */
+        free(cur);                               /* give this node's memory back */
         cur = nxt;
     }
-    head = NULL;
+    head = NULL;                                 /* list is empty now */
 }
 
 static void appendNode(Book *node) {
     Book *cur;
-    node->next = NULL;
-    if (head == NULL) { head = node; return; }
+    node->next = NULL;                         /* new node will be the last one */
+    if (head == NULL) { head = node; return; }   /* empty list: node becomes first */
     cur = head;
-    while (cur->next != NULL) cur = cur->next;
-    cur->next = node;
+    while (cur->next != NULL) cur = cur->next;   /* walk to the last node */
+    cur->next = node;                          /* hook the new node at the end */
 }
 
 /* read data/books.txt, create one linked-list node per line */
 void loadBooks(void) {
-    FILE *f = fopen(BOOKS_FILE, "r");
-    char line[300];
-    char *parts[6];
+    FILE *f = fopen(BOOKS_FILE, "r");          /* "r" = open for reading; NULL = file missing */
+    char line[300];                              /* one line of the file */
+    char *parts[6];                              /* the 6 pieces of a book line */
     Book *b;
-    freeList();
+    freeList();                                    /* forget old list before loading */
     if (f == NULL) {
         printf("(No %s found - starting with an empty library)\n", BOOKS_FILE);
         buildIndexes();
@@ -116,16 +116,16 @@ void loadBooks(void) {
         b->timesIssued = atoi(parts[5]);
         appendNode(b);
     }
-    fclose(f);
+    fclose(f);                                         /* always close a file */
     buildIndexes();
 }
 
 /* write the whole linked list back to data/books.txt */
 void saveBooks(void) {
-    FILE *f = fopen(BOOKS_FILE, "w");
+    FILE *f = fopen(BOOKS_FILE, "w");          /* "w" = overwrite the file */
     Book *cur;
     if (f == NULL) { printf("Error: cannot write %s\n", BOOKS_FILE); return; }
-    for (cur = head; cur != NULL; cur = cur->next)
+    for (cur = head; cur != NULL; cur = cur->next)   /* visit every book */
         fprintf(f, "%d|%s|%s|%s|%d|%d\n", cur->id, cur->title, cur->author,
                 cur->genre, cur->available, cur->timesIssued);
     fclose(f);
@@ -162,9 +162,9 @@ int deleteBook(int id) {
     }
     if (cur == NULL) return 0;
     if (cur->available == 0) return -1;          /* cannot delete an issued book */
-    if (prev == NULL) head = cur->next;
-    else prev->next = cur->next;
-    free(cur);
+    if (prev == NULL) head = cur->next;             /* deleting the first book */
+    else prev->next = cur->next;               /* previous node skips the deleted one */
+    free(cur);                                   /* release memory */
     saveBooks();
     buildIndexes();
     return 1;
@@ -219,9 +219,9 @@ int issueBook(const char *user, int id) {
     FILE *f;
     if (b == NULL) return 0;
     if (b->available == 0) return -1;
-    b->available = 0;
-    b->timesIssued++;
-    f = fopen(ISSUES_FILE, "a");
+    b->available = 0;                            /* now on loan */
+    b->timesIssued++;                         /* popularity counter */
+    f = fopen(ISSUES_FILE, "a");                  /* "a" = append: add a line at the end */
     if (f != NULL) {
         fprintf(f, "%s|%d|ISSUED\n", user, id);
         fclose(f);
@@ -238,10 +238,10 @@ int returnBook(const char *user, int id) {
     for (i = 0; i < n; i++) {
         if (strcmp(records[i].user, user) == 0 && records[i].bookId == id &&
             strcmp(records[i].status, "ISSUED") == 0) {
-            strcpy(records[i].status, "RETURNED");
+            strcpy(records[i].status, "RETURNED");   /* ISSUED -> RETURNED */
             writeRecords(n);
             b = findById(id);
-            if (b != NULL) b->available = 1;
+            if (b != NULL) b->available = 1;          /* back on the shelf */
             saveBooks();
             return 1;
         }
@@ -295,7 +295,7 @@ void displayIssuedBooks(void) {
 
 /* ################ PART 2 : Member 2 - hashing, BST, sorting ################ */
 /* ====================================================================
- * FILE    : search.c
+ * PART 2 of library.c
  * OWNER   : Member 2 (Search & Algorithms)
  * PPT     : "Fast title search via Binary Search Tree",
  *           "Instant lookup by unique ID via hashing",
@@ -303,11 +303,11 @@ void displayIssuedBooks(void) {
  * TOPICS  : 1) HASHING (chaining)          -> find a book by its ID
  *           2) BINARY SEARCH TREE (BST)    -> find a book by its title
  *           3) SORTING (bubble sort)       -> by title / author / popularity
- * NOT HERE: linked list & files -> list.c (Member 1)
- *           menus, recommendation -> oop.cpp (Member 3)
+ * NOT HERE: linked list & files -> PART 1 above (Member 1)
+ *           menus, recommendation -> main.cpp (Member 3)
  *
  * HOW IT FITS: the hash table and the BST only store POINTERS to the
- * linked-list nodes created in list.c, so no data is copied. They are
+ * linked-list nodes created in PART 1, so no data is copied. They are
  * rebuilt (buildIndexes) whenever a book is added, deleted or loaded.
  *
  * SECTIONS IN THIS FILE
@@ -361,11 +361,11 @@ static HNode *table[HASH_SIZE];
 static int hashId(int id) { return id % HASH_SIZE; }
 
 static void hashInsert(Book *b) {
-    int h = hashId(b->id);
-    HNode *n = (HNode *)malloc(sizeof(HNode));
+    int h = hashId(b->id);                          /* slot number = id % 101 */
+    HNode *n = (HNode *)malloc(sizeof(HNode));      /* new chain node */
     if (n == NULL) return;
     n->book = b;
-    n->next = table[h];
+    n->next = table[h];                             /* put in FRONT of the slot's chain */
     table[h] = n;
 }
 
@@ -380,7 +380,7 @@ static void hashClear(void) {
 }
 
 Book *findById(int id) {
-    HNode *cur = table[hashId(id)];
+    HNode *cur = table[hashId(id)];                 /* jump straight to the right slot */
     while (cur != NULL) {
         if (cur->book->id == id) return cur->book;
         cur = cur->next;
@@ -425,7 +425,7 @@ Book *findByTitle(const char *title) {
     while (cur != NULL) {
         c = compareText(title, cur->book->title);
         if (c == 0) return cur->book;
-        cur = (c < 0) ? cur->left : cur->right;
+        cur = (c < 0) ? cur->left : cur->right;     /* smaller -> left, bigger -> right */
     }
     return NULL;
 }
@@ -433,13 +433,13 @@ Book *findByTitle(const char *title) {
 /* in-order walk = titles come out in A-Z order */
 static void walkContains(TNode *node, const char *word, int *count) {
     if (node == NULL) return;
-    walkContains(node->left, word, count);
+    walkContains(node->left, word, count);          /* 1) everything smaller */
     if (containsText(node->book->title, word)) {
         if (*count == 0) printBookHeader();
         displayBook(node->book);
         (*count)++;
     }
-    walkContains(node->right, word, count);
+    walkContains(node->right, word, count);         /* 3) everything bigger */
 }
 
 int searchTitleContains(const char *word) {

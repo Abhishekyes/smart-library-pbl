@@ -19,6 +19,7 @@ Nothing outside these concepts is used (no STL containers, no database, no exter
 | `docs/Project_Report.docx` | Full project report |
 | `docs/Viva_QnA.md` | Likely viva questions with simple answers |
 | `docs/Language_and_Compiler.md` | Which language is used where, which compiler, build steps, common errors |
+| `docs/How_To_Run.md` | Run each feature one by one and see what output to expect |
 | `docs/Debugging_Guide.md` | Step-by-step debugging with real error messages (compile, link, gdb, valgrind) |
 | `Makefile` | Build file |
 
