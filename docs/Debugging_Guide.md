@@ -25,8 +25,8 @@ A *warning* is not an error (the program still builds) but it usually points to 
 | 2 | Read **only the FIRST error**. Later errors are often caused by the first one | Look at `file:line:column` in the first message |
 | 3 | Open that file at that line. Check **that line and the line above it** (missing `;` or `)` is reported on the next line) | |
 | 4 | Fix one thing, rebuild, repeat | `make` |
-| 5 | Turn on all warnings and fix them too | `make` already uses `-Wall`; for extra: `gcc -Wall -Wextra -c src/list.c` |
-| 6 | Run the automatic tests | `bash run_tests.sh` -> must say `0 failed` |
+| 5 | Turn on all warnings and fix them too | `make` already uses `-Wall`; for extra: `gcc -Wall -Wextra -c src/library.c` |
+| 6 | Run the automatic tests | `make test` -> must say `0 failed` |
 | 7 | If still wrong, go to section 4 (run-time debugging) | |
 
 ---
@@ -36,8 +36,8 @@ A *warning* is not an error (the program still builds) but it usually points to 
 ### 3.1 Missing semicolon
 Message:
 ```
-b1/list.c: In function 'addBook':
-b1/list.c:145:21: error: expected ';' before 'b'
+b1/library.c: In function 'addBook':
+b1/library.c:145:21: error: expected ';' before 'b'
   145 |     b->available = 1
       |                     ^
       |                     ;
@@ -48,7 +48,7 @@ b1/list.c:145:21: error: expected ';' before 'b'
 ### 3.2 Typo in a function name
 Message:
 ```
-b2/list.c:137:9: warning: implicit declaration of function 'findByID'; did you mean 'findById'? [-Wimplicit-function-declaration]
+b2/library.c:137:9: warning: implicit declaration of function 'findByID'; did you mean 'findById'? [-Wimplicit-function-declaration]
 ```
 - Meaning: C does not know a function `findByID` (capital D). The compiler even suggests the right name.
 - Fix: use `findById`. C is **case-sensitive**.
@@ -57,10 +57,10 @@ b2/list.c:137:9: warning: implicit declaration of function 'findByID'; did you m
 ### 3.3 Link error: `undefined reference`
 Message (happens if the `extern "C" { }` wrapper is removed from `library.h`):
 ```
-/usr/bin/ld: b3/oop.o: in function `Recommender::recommend(...)':
-oop.cpp:(.text+0x181): undefined reference to `getUserHistory(char const*, int*)'
-/usr/bin/ld: oop.cpp:(.text+0x1d2): undefined reference to `getHead()'
-/usr/bin/ld: oop.cpp:(.text+0x23c): undefined reference to `findById(int)'
+/usr/bin/ld: main.o: in function `Recommender::recommend(...)':
+main.cpp:(.text+0x181): undefined reference to `getUserHistory(char const*, int*)'
+/usr/bin/ld: main.cpp:(.text+0x1d2): undefined reference to `getHead()'
+/usr/bin/ld: main.cpp:(.text+0x23c): undefined reference to `findById(int)'
 ```
 - Meaning: C++ looks for a **C++-style name** (`getHead()`), but the function was compiled as **C**, so it is not found.
 - Fix: keep the `extern "C"` block in `library.h`.
@@ -69,7 +69,7 @@ oop.cpp:(.text+0x181): undefined reference to `getUserHistory(char const*, int*)
 ### 3.4 Warning: unused variable
 Message:
 ```
-b4/search.c:185:26: warning: unused variable 'unused' [-Wunused-variable]
+b4/library.c:185:26: warning: unused variable 'unused' [-Wunused-variable]
 ```
 - Meaning: a variable was declared but never used (often a leftover or a typo'd variable name).
 - Fix: delete it, or use it. Other `-Wall` warnings to watch for: `may be used uninitialized`, `format ... expects argument of type`, `comparison between pointer and integer`.
@@ -104,8 +104,8 @@ cout << "DEBUG history count = " << n << endl;
 Deliberate bug used here: the check `if (b == NULL) return 0;` was removed from `issueBook`, then "issue book 999" (a book that does not exist) was tried. Real result:
 ```
 Program received signal SIGSEGV, Segmentation fault.
-#0  issueBook (user="rahul", id=999) at list.c:218
-#1  Student::menu (this=...)        at oop.cpp:152
+#0  issueBook (user="rahul", id=999) at library.c:218
+#1  Student::menu (this=...)        at main.cpp:152
 #2  main ()                          at main.cpp:34
 ```
 Step by step:
@@ -116,7 +116,7 @@ Step by step:
 | 3 | `gdb ./library` |
 | 4 | `run < in.txt` (or `run`) |
 | 5 | After the crash type `bt` (*backtrace*): shows **which function called which**, with file and line numbers |
-| 6 | Read from the top: `#0` is where it crashed -> `list.c:218`. Open that line. |
+| 6 | Read from the top: `#0` is where it crashed -> `library.c:218`. Open that line. |
 | 7 | `print b` shows `0x0` -> `b` is NULL. The previous line should have checked for NULL. |
 | 8 | Useful extra gdb commands: `break issueBook` (stop at that function), `next` (run one line), `print id`, `quit` |
 
@@ -141,7 +141,7 @@ valgrind --leak-check=full ./library
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `undefined reference to 'findById'` | `search.c` not compiled/added | Add all 4 source files (`list.c`, `search.c`, `oop.cpp`, `main.cpp`) |
+| `undefined reference to 'findById'` | `library.c` not compiled/added | Add both source files (`library.c`, `main.cpp`) |
 | "(No data/books.txt found - starting with an empty library)" | Program started from the wrong folder | `cd` into the project folder (Code::Blocks: set *Execution working dir*) |
 | Login always says "Wrong username or password" | Typo, or `users.txt` line wrong (needs `name|password|role`) | `cat data/users.txt` |
 | A book is missing from the list | Its line in `books.txt` has the wrong number of `|` (needs 6 fields) | Fix the line, or `cp data_sample/books.txt data/` |
@@ -159,7 +159,7 @@ valgrind --leak-check=full ./library
 1. Backup: `cp -r data data_backup`
 2. Change one small thing.
 3. `make clean && make` -> no errors, **no warnings**.
-4. `bash run_tests.sh` -> `RESULT: 17 passed, 0 failed`.
+4. `make test` -> `RESULT: 17 passed, 0 failed`.
 5. Reset data: `cp data_sample/*.txt data/` (the tests do this themselves).
 6. Only then `git add -A && git commit -m "what you changed" && git push`.
 

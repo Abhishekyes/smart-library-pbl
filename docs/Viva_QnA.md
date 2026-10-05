@@ -4,14 +4,14 @@
 - **Why both C and C++?** C core is fast and close to memory (lists, trees, hash). C++ gives classes, inheritance, polymorphism for users and recommendations. They are compiled separately and linked; `extern "C"` in `library.h` lets C++ call C.
 - **Why text files, not a database?** Course scope; simple, human-readable. Limit: whole file rewritten each change, no multi-user safety.
 
-## Member 1 (list.c)
+## Member 1 (library.c)
 - **Why a linked list?** Easy add/delete without shifting. Weakness: no direct jump to n-th book; append walks the list (O(n)).
 - **How is a book deleted?** Find the node, link previous node to next, `free` it. Not allowed if the book is issued.
 - **How does return work?** Find the `ISSUED` line for that user and book in `issues.txt`, change to `RETURNED`, mark book available.
 - **What does `splitLine` do?** Uses `strtok` to cut a line at every `|` into parts (name, password, ...). A line with the wrong number of parts is skipped, so one bad line cannot crash the program.
 - **How is overflow prevented?** Text is copied with `cleanText`/`strncpy` into fixed-size arrays, so long text is cut instead of overflowing.
 
-## Member 2 (search.c, main.cpp)
+## Member 2 (library.c, main.cpp)
 - **Hash function?** `id % 101`. Collisions handled by chaining (a small list per slot). Average lookup O(1).
 - **Why is BST compared ignoring case?** So `HARRY` and `harry` match. In-order walk gives A-Z order.
 - **BST weakness?** Not balanced: titles inserted in sorted order make it a chain (O(n)). Fix: AVL tree. (Sample data is deliberately unsorted.)
@@ -19,7 +19,7 @@
 - **Why a fixed array of pointers in `showSorted`?** Sorting pointers leaves the linked list untouched; a fixed array (MAX_BOOKS 500) avoids malloc mistakes.
 - **Why do hash table and BST store pointers?** No duplicate data; an issue/return updates the book everywhere. They are rebuilt on add/delete/load.
 
-## Member 3 (oop.cpp)
+## Member 3 (main.cpp)
 - **Where is inheritance?** `Student` and `Admin` inherit `User`; `User` is abstract (pure virtual `getRole()` and `menu()`).
 - **Where is polymorphism?** `user->menu()` runs the Student or Admin menu; the caller never needs to know which child object it holds.
 - **Why a virtual destructor?** So `delete` on a base pointer cleans the child object correctly.

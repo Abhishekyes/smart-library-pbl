@@ -4,9 +4,9 @@
 
 | Part | Language | Files | Lines | Why this language |
 |---|---|---|---|---|
-| Library Core Engine | **C** | `list.c`, `search.c` | 498 | Linked list, hashing, BST, sorting, file handling are Data-Structures-in-C topics: direct memory control (`malloc`/`free`, pointers) and speed. |
+| Library Core Engine | **C** | `library.c` | 498 | Linked list, hashing, BST, sorting, file handling are Data-Structures-in-C topics: direct memory control (`malloc`/`free`, pointers) and speed. |
 | Shared header | **C** (readable by C++) | `library.h` | 69 | Book structure + function list; `extern "C"` makes it usable from C++. |
-| OOP + Recommendation layer | **C++** | `oop.h`, `oop.cpp`, `main.cpp` | 392 | Classes, inheritance, polymorphism are OOPs-with-C++ topics. |
+| OOP + Recommendation layer | **C++** | `main.cpp` | 392 | Classes, inheritance, polymorphism are OOPs-with-C++ topics. |
 | Support (not program code) | Makefile, bash | `Makefile`, `run_tests.sh` | - | Build and test automation. |
 
 So: **about half the code is C and half is C++**, exactly as the PPT says ("C for the core engine, C++ OOP for recommendation and user management").
@@ -29,8 +29,8 @@ GCC = **GNU Compiler Collection**, a free compiler family. It gives two commands
 
 | Command | Compiles | Used for |
 |---|---|---|
-| `gcc` | C | `list.c`, `search.c` |
-| `g++` | C++ | `oop.cpp`, `main.cpp` and the **final linking** |
+| `gcc` | C | `library.c` |
+| `g++` | C++ | `main.cpp` and the **final linking** |
 
 ### 2.1 What happens when you build (4 steps)
 ```
@@ -39,7 +39,7 @@ source (.c / .cpp)
    |  2. Compiling     : code -> machine instructions
    |  3. Assembling    : -> object file (.o)
    v
-list.o  search.o  oop.o  main.o
+library.o  main.o
    |  4. Linking       : g++ joins all .o files + standard libraries
    v
 library   (library.exe on Windows)   <- the program
@@ -47,11 +47,9 @@ library   (library.exe on Windows)   <- the program
 
 ### 2.2 The exact commands (what `make` runs)
 ```
-gcc -Wall -c src/list.c   -o src/list.o
-gcc -Wall -c src/search.c -o src/search.o
-g++ -Wall -c src/oop.cpp  -o src/oop.o
-g++ -Wall -c src/main.cpp -o src/main.o
-g++ -o library src/list.o src/search.o src/oop.o src/main.o
+gcc -Wall -Wextra -c src/library.c -o src/library.o
+g++ -Wall -Wextra -c src/main.cpp -o src/main.o
+g++ -o library src/library.o src/main.o
 ```
 | Flag | Meaning |
 |---|---|
