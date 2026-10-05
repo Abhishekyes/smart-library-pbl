@@ -61,7 +61,8 @@ Proj_3p/
 |   |-- Project_Report.docx   full project report
 |   |-- Viva_QnA.md           viva questions with simple answers
 |   |-- test_output.txt       saved output of the last test run
-|   `-- Code_Walkthrough.md   this file
+|   |-- Code_Walkthrough.md   what every folder/file/function is
+|   `-- Deep_Dive.md          how files connect + line-by-line code
 |-- Makefile             build instructions (one command: make)
 |-- run_tests.sh         14 automatic tests (PASS/FAIL)
 |-- README.md            quick start, demo logins, work split
@@ -168,7 +169,7 @@ C and C++ store function names differently internally. This wrapper tells the C+
 | `getHead()` | list.c | Gives the first node of the list |
 | `addBook(id,title,author,genre)` | list.c | `1` added, `0` duplicate id |
 | `deleteBook(id)` | list.c | `1` deleted, `0` not found, `-1` book is issued |
-| `printBookHeader()`, `displayBook()`, `displayAllBooks()` | list.c | Print table rows |
+| `printBookHeader()`, `displayBook()` | list.c | Print table rows |
 | `issueBook(user,id)` | list.c | `1` ok, `0` no such book, `-1` already issued |
 | `returnBook(user,id)` | list.c | `1` ok, `0` this user did not issue it |
 | `getUserHistory(user,ids[],max)` | list.c | Fills `ids[]`, returns how many |
@@ -198,7 +199,7 @@ C and C++ store function names differently internally. This wrapper tells the C+
 | `saveBooks()` | Opens `books.txt` for writing and prints every node as one line. |
 | `addBook()` | Refuse if `findById(id)` already finds that id; else make a node, clean the texts, set `available=1, timesIssued=0`, append, save, rebuild indexes. |
 | `deleteBook()` | Walk with two pointers (`prev`, `cur`) to the node; refuse if missing or issued; else **re-link** `prev->next = cur->next` (or move `head`), `free(cur)`, save, rebuild indexes. |
-| `printBookHeader()`, `displayBook()`, `displayAllBooks()` | Formatted table printing. `%-40.40s` = left-aligned, exactly 40 wide, cut if longer. |
+| `printBookHeader()`, `displayBook()` | Formatted table printing. `%-40.40s` = left-aligned, exactly 40 wide, cut if longer. |
 | `readRecords()` | Loads all lines of `issues.txt` into `records[]`, returns the count. |
 | `writeRecords(n)` | Writes `records[]` back to `issues.txt`. |
 | `issueBook(user,id)` | Find book via hash; not found -> `0`; already issued -> `-1`; else `available=0`, `timesIssued++`, **append** `user|id|ISSUED` to the history file, save books, return `1`. |

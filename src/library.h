@@ -48,7 +48,6 @@ int   addBook(int id, const char *title, const char *author, const char *genre);
 int   deleteBook(int id);              /* 1 ok, 0 not found, -1 book is issued */
 void  printBookHeader(void);
 void  displayBook(const Book *b);
-void  displayAllBooks(void);
 int   issueBook(const char *user, int id);   /* 1 ok, 0 not found, -1 not available */
 int   returnBook(const char *user, int id);  /* 1 ok, 0 no such issue record */
 int   getUserHistory(const char *user, int ids[], int max);

@@ -153,13 +153,6 @@ void displayBook(const Book *b) {
            b->available ? "Available" : "Issued", b->timesIssued);
 }
 
-void displayAllBooks(void) {
-    Book *cur;
-    if (head == NULL) { printf("No books in the library.\n"); return; }
-    printBookHeader();
-    for (cur = head; cur != NULL; cur = cur->next) displayBook(cur);
-}
-
 /* ---------------- E + F. issue history file and issue / return ----------------
    data/issues.txt keeps one line per borrow:  user|bookId|ISSUED or RETURNED.
    This same file is the "reading history" used by the recommendation engine. */

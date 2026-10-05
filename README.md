@@ -21,6 +21,7 @@ Nothing outside these concepts is used (no STL containers, no database, no exter
 | `docs/Project_Report.docx` | Full project report |
 | `docs/Viva_QnA.md` | Likely viva questions with simple answers |
 | `docs/Code_Walkthrough.md` | Explains every folder, file, function and concept in plain language |
+| `docs/Deep_Dive.md` | Who calls whom, who owns data, call chain per menu option, line-by-line code explanation |
 | `Makefile` | Build file |
 
 ## Build and run
