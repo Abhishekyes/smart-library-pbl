@@ -20,6 +20,7 @@ Nothing outside these concepts is used (no STL containers, no database, no exter
 | `docs/test_output.txt` | Saved output of the last test run |
 | `docs/Project_Report.docx` | Full project report |
 | `docs/Viva_QnA.md` | Likely viva questions with simple answers |
+| `docs/Code_Walkthrough.md` | Explains every folder, file, function and concept in plain language |
 | `Makefile` | Build file |
 
 ## Build and run
