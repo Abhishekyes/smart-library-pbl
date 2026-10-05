@@ -1,0 +1,25 @@
+301|Wings of Fire|A P J Abdul Kalam|Biography|1|2
+105|Object Oriented Programming with C++|E Balagurusamy|Programming|0|1
+201|Harry Potter and the Sorcerer's Stone|J K Rowling|Fantasy|1|3
+403|Murder on the Orient Express|Agatha Christie|Mystery|1|1
+101|The C Programming Language|Brian Kernighan|Programming|1|3
+205|The Alchemist|Paulo Coelho|Fiction|1|3
+502|Cosmos|Carl Sagan|Science|1|1
+102|Data Structures Using C|Reema Thareja|Programming|0|2
+204|The Lord of the Rings|J R R Tolkien|Fantasy|1|0
+401|Sherlock Holmes Complete Stories|Arthur Conan Doyle|Mystery|1|2
+203|The Hobbit|J R R Tolkien|Fantasy|1|2
+103|Let Us C|Yashavant Kanetkar|Programming|1|2
+206|To Kill a Mockingbird|Harper Lee|Fiction|1|0
+303|Steve Jobs|Walter Isaacson|Biography|1|1
+104|C++ Primer|Stanley Lippman|Programming|1|0
+202|Harry Potter and the Chamber of Secrets|J K Rowling|Fantasy|1|1
+402|And Then There Were None|Agatha Christie|Mystery|1|1
+106|Introduction to Algorithms|Thomas Cormen|Programming|1|1
+207|The Kite Runner|Khaled Hosseini|Fiction|1|0
+501|A Brief History of Time|Stephen Hawking|Science|1|0
+208|Three Mistakes of My Life|Chetan Bhagat|Fiction|1|0
+302|My Experiments with Truth|M K Gandhi|Biography|1|0
+404|The Girl with the Dragon Tattoo|Stieg Larsson|Mystery|1|0
+209|Five Point Someone|Chetan Bhagat|Fiction|1|0
+503|The Selfish Gene|Richard Dawkins|Science|1|0

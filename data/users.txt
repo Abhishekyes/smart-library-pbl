@@ -1,0 +1,3 @@
+admin|admin123|admin
+priya|priya123|student
+rahul|rahul123|student

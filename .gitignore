@@ -1,0 +1,10 @@
+# build output
+*.o
+library
+library.exe
+# editor / OS files
+.DS_Store
+*.cbp
+*.layout
+bin/
+obj/
