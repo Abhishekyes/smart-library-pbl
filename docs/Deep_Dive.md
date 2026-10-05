@@ -41,6 +41,7 @@ main.cpp --g++-->  main.o   /
 |---|---|---|
 | `loadBooks` | list.c | main.cpp |
 | `saveBooks` | list.c | list.c only (4 places) |
+| `splitLine` | list.c | list.c (books and issues files), oop.cpp (users file) |
 | `getHead` | list.c | search.c (3), oop.cpp (2) |
 | `addBook` / `deleteBook` | list.c | oop.cpp (Admin) |
 | `issueBook` / `returnBook` | list.c | oop.cpp (Student) |
@@ -91,9 +92,8 @@ Book data lives in **one place only: the linked list in `list.c`** (`head`).
 | `Book` nodes | `loadBooks`, `addBook` (`malloc`) | `deleteBook`, `freeList` (`free`) | Whole program (until deleted) |
 | Hash nodes (`HNode`) | `buildIndexes` -> `hashInsert` | `hashClear` (at next rebuild) | Until next add/delete/load |
 | Tree nodes (`TNode`) | `buildIndexes` -> `bstInsert` | `bstClear` (at next rebuild) | Until next add/delete/load |
-| Sort array `arr` | `showSorted` | same function | One sort call |
+| Sort array `arr[MAX_BOOKS]`, recommender arrays `cand[]`, `score[]`, `history[]` | local fixed arrays (automatic) | freed automatically when the function ends | One call - no `new/delete` needed |
 | `Student` / `Admin` object | `loginUser` (`new`) | `main` (`delete u`) | One login session |
-| Rule objects, `cand[]`, `score[]` | `Recommender::recommend` (`new`) | same function | One recommendation call |
 
 Only `list.c` creates or deletes `Book` nodes. Because `buildIndexes` runs after every add/delete, the hash table and BST never hold a pointer to a freed book.
 
@@ -111,7 +111,7 @@ Only `list.c` creates or deletes `Book` nodes. Because `buildIndexes` runs after
 ### 3.1 Start-up and login
 | Step | Code path |
 |---|---|
-| Program starts | `main()` -> `loadBooks()` -> `fopen/fgets/sscanf` -> `appendNode` per line -> `buildIndexes()` |
+| Program starts | `main()` -> `loadBooks()` -> `fopen/fgets/splitLine` -> `appendNode` per line -> `buildIndexes()` |
 | Login | `main()` -> `readLine` x2 -> `loginUser(name, pass)` -> reads `users.txt` -> `new Student` or `new Admin` |
 | Menu | `u->menu()` -> **virtual call**: runs `Student::menu` or `Admin::menu` |
 
@@ -120,11 +120,11 @@ Only `list.c` creates or deletes `Book` nodes. Because `buildIndexes` runs after
 |---|---|---|---|
 | 1 Search by title | `User::searchByTitle` | `findByTitle`, else `searchTitleContains` | BST |
 | 2 Search by ID | `User::searchById` | `findById` | Hash table |
-| 3 Sorted list | `User::viewSorted` | `showSorted(mode)` | Pointer array + insertion sort |
+| 3 Sorted list | `User::viewSorted` | `showSorted(mode)` | Fixed pointer array + bubble sort |
 | 4 Issue | `Student::menu` | `issueBook` -> `findById`, `saveBooks` | list, `issues.txt`, `books.txt` |
 | 5 Return | `Student::menu` | `returnBook` -> `readRecords`, `writeRecords`, `findById`, `saveBooks` | `issues.txt`, `books.txt` |
 | 6 History | `Student::menu` | `showUserHistory` -> `readRecords`, `findById` | `issues.txt` |
-| 7 Recommend | `Recommender::recommend` | `getUserHistory`, `getHead`, `findById` (through the rules) | `issues.txt`, list |
+| 7 Recommend | `Recommender::recommend` | `getUserHistory`, `getHead`, `findById` | `issues.txt`, list |
 | 0 Logout | returns to `main` | - | - |
 
 ### 3.3 Admin menu
@@ -156,20 +156,32 @@ typedef struct Book {
 - `typedef struct Book {...} Book;` - lets us write `Book` instead of `struct Book`.
 - `next` is what turns separate books into a **list**: book 1 knows where book 2 is, and so on; the last one has `next = NULL`.
 
-### 4.2 Reading one line of `books.txt` (`loadBooks`, `list.c`)
+### 4.2 Reading one line of `books.txt` (`splitLine` + `loadBooks`, `list.c`)
 ```c
-b = (Book *)malloc(sizeof(Book));                       // ask memory for ONE node
-if (sscanf(line, "%d|%59[^|]|%39[^|]|%29[^|]|%d|%d",
-           &b->id, b->title, b->author, b->genre,
-           &b->available, &b->timesIssued) == 6) {
-    appendNode(b);                                      // all 6 fields read -> add to list
-} else {
-    free(b);                                            // bad line -> give memory back
+int splitLine(char *line, char *parts[], int max) {
+    int n = 0;
+    char *p;
+    line[strcspn(line, "\r\n")] = '\0';      // cut the newline at the end of the line
+    p = strtok(line, "|");                    // first piece (text before the first |)
+    while (p != NULL && n < max) {
+        parts[n] = p;  n++;
+        p = strtok(NULL, "|");                // next piece
+    }
+    return n;                                 // how many pieces were found
 }
 ```
-- `%d` read a number; `|` must match literally; `%59[^|]` = "take up to 59 characters, stop at the next `|`".
-- `&b->id` = "address of the id field of node b" (sscanf needs addresses to fill). Text arrays need no `&`.
-- `== 6` means all 6 fields were read, so a half-broken line is skipped instead of crashing.
+```c
+if (splitLine(line, parts, 6) != 6) continue;      // not exactly 6 pieces -> skip the line
+b = (Book *)malloc(sizeof(Book));                  // ask memory for ONE node
+b->id = atoi(parts[0]);                            // atoi: text "201" -> number 201
+cleanText(b->title,  parts[1], TITLE_LEN);         // copy text safely
+...
+appendNode(b);                                     // add to the list
+```
+- `strtok(line, "|")` cuts the text at each `|`. Example: `"201|The Hobbit|Tolkien"` -> `"201"`, `"The Hobbit"`, `"Tolkien"`. It returns `NULL` when no pieces are left.
+- `strcspn(line, "\r\n")` finds where the newline starts, so we can cut it off. This also removes the `\r` of Windows files.
+- `parts[]` is an array of text pointers that point **inside** `line` (no copy yet); `cleanText` copies each piece into the book node.
+- `!= 6` means a half-broken line is skipped instead of crashing. `splitLine` is also used for `issues.txt` (3 pieces) and `users.txt` (3 pieces).
 
 ### 4.3 Adding at the end (`appendNode`)
 ```c
@@ -263,18 +275,21 @@ Left -> node -> right on a BST = **sorted A-Z**. `count` is passed as a pointer 
 
 ### 4.7 Sorting (`showSorted`, `search.c`)
 ```c
-for (i = 1; i < n; i++) {              // arr[0..i-1] is already sorted
-    key = arr[i];                      // the next item to place
-    j = i - 1;
-    while (j >= 0 && isAfter(arr[j], key, mode)) {   // bigger than key?
-        arr[j + 1] = arr[j];           // slide it one step right
-        j--;
+Book *arr[MAX_BOOKS];                     // fixed array of pointers (no malloc needed)
+...
+for (i = 0; i < n - 1; i++) {             // each round puts one more item in its final place
+    for (j = 0; j < n - 1 - i; j++) {     // compare neighbours
+        if (isAfter(arr[j], arr[j + 1], mode)) {   // wrong order?
+            temp = arr[j];                // swap them using a helper variable
+            arr[j] = arr[j + 1];
+            arr[j + 1] = temp;
+        }
     }
-    arr[j + 1] = key;                  // drop key into the gap
 }
 ```
+- **Bubble sort**: neighbours are compared and swapped if needed; after round 1 the "biggest" item is at the end, after round 2 the second biggest, and so on.
 - `arr` holds **pointers** to books, so sorting never touches the linked list.
-- `isAfter(a, b, mode)` is the only part that changes between "by title", "by author" and "by popularity" (`a->timesIssued < b->timesIssued` = more issued comes first).
+- `isAfter(a, b, mode)` is the only part that changes between "by title", "by author" and "by popularity".
 
 ### 4.8 Issue and return (`list.c`)
 ```c
@@ -308,26 +323,36 @@ class Admin   : public User { /* menu() with admin options  */ };
 - `public User` = inheritance: Student/Admin automatically get `username`, `searchByTitle()`, `searchById()`, `viewSorted()`.
 - **How `u->menu()` picks the right menu:** every object of a class with `virtual` functions carries a hidden pointer to a small table of that class's functions (the *vtable*). The call looks inside the real object's table at run time, so a `Student` runs `Student::menu`, an `Admin` runs `Admin::menu`, although the variable type is `User*`.
 
-### 4.10 Rules and the recommender (`oop.cpp`)
+### 4.10 The recommender (`oop.cpp`)
 ```cpp
-Rule *rules[2];
-rules[0] = new GenreRule(history, n);        // child objects stored as base-class pointers
-rules[1] = new AuthorRule(history, n);
-...
-int s = 0;
-for (int r = 0; r < 2; r++) s += rules[r]->score(b);   // polymorphic call: each rule scores differently
-if (s > 0) { cand[m] = b; score[m] = s; m++; }          // keep only matching books
+for (Book *b = getHead(); b != NULL && m < MAX_BOOKS; b = b->next) {   // every book
+    int s = 0;  bool alreadyRead = false;
+    for (int i = 0; i < n; i++) {                       // every book in the user's history
+        if (history[i] == b->id) { alreadyRead = true; break; }
+        Book *old = findById(history[i]);               // a book the user read earlier
+        if (old == NULL) continue;                      // it was deleted later
+        if (strcmp(old->genre,  b->genre)  == 0) s += 2;    // same genre  -> +2
+        if (strcmp(old->author, b->author) == 0) s += 3;    // same author -> +3
+    }
+    if (alreadyRead || s == 0) continue;                // skip read books and no-match books
+    cand[m] = b;  score[m] = s;  m++;                   // keep this candidate
+}
 ```
-- The loop does not know or care which rule is which. To add a new rule you would write one new child class and one more array slot (nothing else changes).
-- `GenreRule::score` loops over history ids, uses `findById` to get each old book, and adds 2 for every same genre; `AuthorRule::score` adds 3 for every same author.
-- Candidates are then sorted by the same insertion-sort idea (score high -> low), top 5 printed, and all `new` memory is released with `delete` / `delete[]`.
+- `cand[]` and `score[]` are **fixed arrays** (`MAX_BOOKS` long), so there is no `new`/`delete` to forget.
+- `strcmp(a, b) == 0` means "the two texts are equal".
+- After this loop a **bubble sort** puts the highest score first (swapping `cand[j]` and `score[j]` together), and the top 5 are printed.
+- Inheritance and polymorphism are shown by `User` / `Student` / `Admin` (section 4.9); the Recommender is a separate, simple class.
 
 ### 4.11 Login (`loginUser`, `oop.cpp`)
 ```cpp
-sscanf(line, "%29[^|]|%29[^|]|%19s", u, p, role)      // split name | password | role
-if (name == u && password == p) {
-    if (strcmp(role, "admin") == 0) return new Admin(name);
-    return new Student(name);
+char *parts[3];                                        // parts[0]=name, parts[1]=password, parts[2]=role
+while (fgets(line, sizeof(line), f) != NULL) {
+    if (splitLine(line, parts, 3) != 3) continue;      // skip bad / blank line
+    if (name == parts[0] && password == parts[1]) {    // both must match
+        fclose(f);
+        if (strcmp(parts[2], "admin") == 0) return new Admin(name);
+        return new Student(name);
+    }
 }
 ```
 The function returns a `User*`. `main` then calls `u->menu()` without ever asking "is this a Student or Admin?" - that decision is hidden in the object.
@@ -367,10 +392,9 @@ do {                                      // 2. repeat until Exit
 
 ### 5.3 "priya asks for recommendations"
 1. `getUserHistory("priya")` reads `issues.txt` -> ids `[201, 203, 102]`.
-2. Rules created with this history.
-3. For each book not in history (e.g. 202): GenreRule = 2 + 2 (201 and 203 are Fantasy) = 4; AuthorRule = 3 (201 is Rowling) = 3; total **7** > 0 -> candidate.
-4. For 204: genre 4, author 3 (Tolkien, from 203) = **7**. For 105: Programming matches 102 -> **2**. For 205 (Fiction, no match) -> 0 -> dropped.
-5. Insertion sort high -> low; ties keep file order -> `204, 202, 105, 101, 103` (matches the test output).
+2. For each book not in the history (e.g. 202): history book 201 has the same genre (+2) **and** the same author (+3); history book 203 has the same genre (+2) -> total **7** -> candidate.
+3. For 204: genre +2 (from 201) +2 (from 203), author +3 (Tolkien, from 203) = **7**. For 105: Programming matches 102 -> **2**. For 205 (Fiction, no match) -> 0 -> dropped.
+4. Bubble sort high -> low; ties keep file order -> `204, 202, 105, 101, 103` (matches the test output).
 
 ---
 
@@ -378,13 +402,13 @@ do {                                      // 2. repeat until Exit
 
 | I want to... | Edit | Also check |
 |---|---|---|
-| Add a field to a book (e.g. publisher) | `library.h` (struct), `list.c` (`sscanf`, `fprintf`, `addBook`, `displayBook`), `data/books.txt` | `search.c` only if you sort/search by it; `oop.cpp` `addNewBook` |
+| Add a field to a book (e.g. publisher) | `library.h` (struct), `list.c` (`loadBooks` piece count and `atoi`/`cleanText`, `saveBooks`, `addBook`, `displayBook`), `data/books.txt` (one more `|` piece) | `search.c` only if you sort/search by it; `oop.cpp` `addNewBook` |
 | Add a new sort option | `search.c` `isAfter` + `oop.cpp` `viewSorted` menu text | `run_tests.sh` |
-| Add a new recommendation rule | New child class in `oop.h` / `oop.cpp`, add it in `Recommender::recommend` | Report section 8-9 |
+| Change the recommendation scoring (+2 / +3) | `Recommender::recommend` in `oop.cpp` | Report section 9 |
 | Add a menu option | `oop.cpp` (`Student::menu` or `Admin::menu`) | New C function -> declare in `library.h` |
 | Change the hash size | `HASH_SIZE` in `search.c` | Nothing else |
 | Change file locations | `BOOKS_FILE`, `ISSUES_FILE` in `library.h`, `USERS_FILE` in `oop.h` | `run_tests.sh` (`data/` paths) |
-| Change max text length | `TITLE_LEN` etc. in `library.h` | The `%59[^|]` numbers in `loadBooks` must be length - 1 |
+| Change max text length | `TITLE_LEN` etc. in `library.h` | Nothing else (`cleanText` and `toLower` use the sizes) |
 
 ---
 
@@ -398,8 +422,8 @@ do {                                      // 2. repeat until Exit
 | BST title search | search.c | `bstInsert`, `findByTitle`, `walkContains` |
 | Sorting (title/author/popularity) | search.c | `showSorted`, `isAfter` |
 | Issue / return tracking | list.c | `issueBook`, `returnBook` |
-| Classes | oop.h | `User`, `Student`, `Admin`, `Rule`, `Recommender` |
-| Inheritance | oop.h | `Student : User`, `Admin : User`, `GenreRule : Rule`, `AuthorRule : Rule` |
-| Polymorphism | oop.cpp, main.cpp | `u->menu()`, `rules[r]->score(b)` |
+| Classes | oop.h | `User`, `Student`, `Admin`, `Recommender` |
+| Inheritance | oop.h | `Student : User`, `Admin : User` |
+| Polymorphism | oop.cpp, main.cpp | `u->menu()` (runs the Student or Admin menu) |
 | Role-based access | oop.cpp | `loginUser`, `Student::menu`, `Admin::menu` |
-| Recommendation (genre, author, history) | oop.cpp | `GenreRule`, `AuthorRule`, `Recommender::recommend` |
+| Recommendation (genre, author, history) | oop.cpp | `Recommender::recommend` |

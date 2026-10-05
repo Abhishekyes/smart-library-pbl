@@ -44,6 +44,21 @@ run "T9 admin issued report + duplicate username" "1\nadmin\nadmin123\n6\n7\npri
 
 run "T11 invalid menu choice does not crash"  "1\nadmin\nadmin123\n99\nabc\n0\n0\n"        "Invalid choice." "Goodbye"
 
+run "T13 very long search word does not crash" "1\npriya\npriya123\n1\n$(printf 'a%.0s' $(seq 1 400))\n0\n0\n" "No book found"
+
+# T14: data files with Windows line endings (CRLF) still work
+rm -rf data && cp -r data_sample data
+sed -i 's/$/\r/' data/books.txt data/users.txt data/issues.txt
+out=$(printf "1\npriya\npriya123\n7\n0\n0\n" | ./library | clean)
+echo "=== T14 Windows (CRLF) data files"
+if echo "$out" | grep -qF "204   The Lord of the Rings"; then echo ">>> PASS"; PASS=$((PASS+1)); else echo "$out"; echo ">>> FAIL"; FAIL=$((FAIL+1)); fi; echo
+
+# T15: missing books file -> program starts with an empty library, no crash
+rm -rf data && cp -r data_sample data && rm data/books.txt
+out=$(printf "1\nadmin\nadmin123\n3\n1\n0\n0\n" | ./library | clean)
+echo "=== T15 missing books.txt"
+if echo "$out" | grep -qF "starting with an empty library" && echo "$out" | grep -qF "No books in the library."; then echo ">>> PASS"; PASS=$((PASS+1)); else echo "$out"; echo ">>> FAIL"; FAIL=$((FAIL+1)); fi; echo
+
 # T12: data really saved in the files
 rm -rf data && cp -r data_sample data
 printf "1\nrahul\nrahul123\n4\n201\n0\n0\n" | ./library > /dev/null

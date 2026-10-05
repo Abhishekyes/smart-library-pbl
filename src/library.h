@@ -24,7 +24,8 @@ extern "C" {
 #define AUTHOR_LEN  40
 #define GENRE_LEN   30
 #define NAME_LEN    30
-#define MAX_HISTORY 200
+#define MAX_HISTORY 200   /* max books remembered per user for recommendation */
+#define MAX_BOOKS   500   /* max books in the library (fixed-size arrays) */
 
 #define BOOKS_FILE  "data/books.txt"
 #define ISSUES_FILE "data/issues.txt"
@@ -42,9 +43,10 @@ typedef struct Book {
 
 /* ---------- list.c  [Member 1] : linked list, file handling, issue/return ---------- */
 void  loadBooks(void);
+int   splitLine(char *line, char *parts[], int max);  /* cut a line at each '|' */
 void  saveBooks(void);
 Book *getHead(void);
-int   addBook(int id, const char *title, const char *author, const char *genre);
+int   addBook(int id, const char *title, const char *author, const char *genre); /* 1 ok, 0 duplicate id, -1 library full */
 int   deleteBook(int id);              /* 1 ok, 0 not found, -1 book is issued */
 void  printBookHeader(void);
 void  displayBook(const Book *b);

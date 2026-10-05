@@ -176,7 +176,19 @@ Invalid choice.
 Thank you. Goodbye!
 >>> PASS
 
+=== T13 very long search word does not crash
+  Intelligent Digital Library & Book Recommendation
+No book found with "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".
+Thank you. Goodbye!
+>>> PASS
+
+=== T14 Windows (CRLF) data files
+>>> PASS
+
+=== T15 missing books.txt
+>>> PASS
+
 === T12 data saved to files
 >>> PASS
 
-RESULT: 14 passed, 0 failed
+RESULT: 17 passed, 0 failed

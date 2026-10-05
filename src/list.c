@@ -45,6 +45,30 @@ static void cleanText(char *dest, const char *src, int size) {
         if (dest[i] == '|' || dest[i] == '\n') dest[i] = ' ';
 }
 
+/* Cut one line of a data file at every '|' character.
+   Example: "201|The Hobbit|Tolkien"  ->  parts[0]="201", parts[1]="The Hobbit", parts[2]="Tolkien"
+   Returns how many pieces were found (at most max). Used for books, issues and users files. */
+int splitLine(char *line, char *parts[], int max) {
+    int n = 0;
+    char *p;
+    line[strcspn(line, "\r\n")] = '\0';      /* remove the newline at the end of the line */
+    p = strtok(line, "|");
+    while (p != NULL && n < max) {
+        parts[n] = p;
+        n++;
+        p = strtok(NULL, "|");
+    }
+    return n;
+}
+
+/* how many books are in the linked list right now */
+static int countBooks(void) {
+    int n = 0;
+    Book *cur;
+    for (cur = head; cur != NULL; cur = cur->next) n++;
+    return n;
+}
+
 /* ---------------- A + B. linked list helpers and books file ---------------- */
 static void freeList(void) {
     Book *cur = head, *nxt;
@@ -69,6 +93,7 @@ static void appendNode(Book *node) {
 void loadBooks(void) {
     FILE *f = fopen(BOOKS_FILE, "r");
     char line[300];
+    char *parts[6];
     Book *b;
     freeList();
     if (f == NULL) {
@@ -77,15 +102,17 @@ void loadBooks(void) {
         return;
     }
     while (fgets(line, sizeof(line), f) != NULL) {
-        b = (Book *)malloc(sizeof(Book));
+        if (splitLine(line, parts, 6) != 6) continue;    /* skip blank / bad line */
+        if (countBooks() >= MAX_BOOKS) break;            /* library is full */
+        b = (Book *)malloc(sizeof(Book));                /* one new node */
         if (b == NULL) break;
-        if (sscanf(line, "%d|%59[^|]|%39[^|]|%29[^|]|%d|%d",
-                   &b->id, b->title, b->author, b->genre,
-                   &b->available, &b->timesIssued) == 6) {
-            appendNode(b);
-        } else {
-            free(b);   /* skip bad / blank line */
-        }
+        b->id = atoi(parts[0]);                          /* atoi: text -> number */
+        cleanText(b->title,  parts[1], TITLE_LEN);
+        cleanText(b->author, parts[2], AUTHOR_LEN);
+        cleanText(b->genre,  parts[3], GENRE_LEN);
+        b->available   = atoi(parts[4]);
+        b->timesIssued = atoi(parts[5]);
+        appendNode(b);
     }
     fclose(f);
     buildIndexes();
@@ -104,10 +131,11 @@ void saveBooks(void) {
 
 /* ---------------- C. add / delete a book (linked list operations) ---------------- */
 /* add a new book at the END of the linked list, then save the file.
-   returns 1 = added, 0 = a book with this id already exists */
+   returns 1 = added, 0 = a book with this id already exists, -1 = library is full */
 int addBook(int id, const char *title, const char *author, const char *genre) {
     Book *b;
     if (findById(id) != NULL) return 0;          /* duplicate id */
+    if (countBooks() >= MAX_BOOKS) return -1;    /* library is full */
     b = (Book *)malloc(sizeof(Book));
     if (b == NULL) return 0;
     b->id = id;
@@ -159,12 +187,15 @@ void displayBook(const Book *b) {
 static int readRecords(void) {
     FILE *f = fopen(ISSUES_FILE, "r");
     char line[200];
+    char *parts[3];
     int n = 0;
     if (f == NULL) return 0;
     while (n < MAX_RECORDS && fgets(line, sizeof(line), f) != NULL) {
-        if (sscanf(line, "%29[^|]|%d|%9s",
-                   records[n].user, &records[n].bookId, records[n].status) == 3)
-            n++;
+        if (splitLine(line, parts, 3) != 3) continue;    /* skip blank / bad line */
+        cleanText(records[n].user, parts[0], NAME_LEN);
+        records[n].bookId = atoi(parts[1]);
+        cleanText(records[n].status, parts[2], 10);
+        n++;
     }
     fclose(f);
     return n;

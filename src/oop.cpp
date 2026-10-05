@@ -7,7 +7,7 @@
 //
 // SECTIONS IN THIS FILE
 //   A. input helpers
-//   B. recommendation rules + Recommender   (genre, author, reading history)
+//   B. Recommender                          (genre, author, reading history)
 //   C. features common to all users         (User class)
 //   D. Student menu
 //   E. Admin menu
@@ -37,102 +37,65 @@ int readInt(const char *prompt) {
     return atoi(s.c_str());
 }
 
-// ================= B. recommendation rules =================
-// Rule stores the user's reading history; children decide the scoring.
-Rule::Rule(const int ids[], int n) {
-    count = n;
-    for (int i = 0; i < n; i++) history[i] = ids[i];
-}
-
-// +2 points for every book in the history that has the SAME GENRE
-int GenreRule::score(const Book *b) {
-    int s = 0;
-    for (int i = 0; i < count; i++) {
-        Book *old = findById(history[i]);          // hashing lookup (search.c)
-        if (old != NULL && strcmp(old->genre, b->genre) == 0) s += 2;
-    }
-    return s;
-}
-
-// +3 points for every book in the history that has the SAME AUTHOR
-int AuthorRule::score(const Book *b) {
-    int s = 0;
-    for (int i = 0; i < count; i++) {
-        Book *old = findById(history[i]);
-        if (old != NULL && strcmp(old->author, b->author) == 0) s += 3;
-    }
-    return s;
-}
-
+// ================= B. Recommender =================
 // Recommend books for one user:
-//   1. read the user's reading history (data/issues.txt via list.c)
-//   2. give every book the user has NOT read a score = genre points + author points
-//   3. sort by score (highest first) and print the top N
-void Recommender::recommend(const string &user, int topN) {
+//   1. read the user's reading history (data/issues.txt, through list.c)
+//   2. every book the user has NOT read gets a score:
+//        +2 for each history book with the same genre
+//        +3 for each history book with the same author
+//   3. sort by score (highest first) and print the top books
+void Recommender::recommend(const string &user) {
     int history[MAX_HISTORY];
     int n = getUserHistory(user.c_str(), history, MAX_HISTORY);
 
-    if (n == 0) {                       // recommendation needs reading history
+    if (n == 0) {                       // no history = nothing to learn from
         cout << "No reading history yet. Issue a few books first,\n"
              << "then ask again - suggestions are based on what you have read.\n";
         return;
     }
 
-    // two different rules, both used through the SAME base-class pointer type
-    Rule *rules[2];
-    rules[0] = new GenreRule(history, n);
-    rules[1] = new AuthorRule(history, n);
+    Book *cand[MAX_BOOKS];              // books that can be recommended
+    int score[MAX_BOOKS];               // score of each of those books
+    int m = 0;                          // how many candidates we have
 
-    int total = 0;                      // count the books in the library
-    for (Book *b = getHead(); b != NULL; b = b->next) total++;
-
-    Book **cand = new Book *[total + 1];    // candidate books
-    int *score = new int[total + 1];        // their scores
-    int m = 0;
-
-    for (Book *b = getHead(); b != NULL; b = b->next) {
-        bool alreadyRead = false;
-        for (int i = 0; i < n; i++)
-            if (history[i] == b->id) alreadyRead = true;
-        if (alreadyRead) continue;          // never recommend a book already read
-
+    // ---- step 2: score every book ----
+    for (Book *b = getHead(); b != NULL && m < MAX_BOOKS; b = b->next) {
         int s = 0;
-        for (int r = 0; r < 2; r++) s += rules[r]->score(b);   // POLYMORPHIC call
-        if (s > 0) {                        // keep only books that match something
-            cand[m] = b;
-            score[m] = s;
-            m++;
+        bool alreadyRead = false;
+        for (int i = 0; i < n; i++) {
+            if (history[i] == b->id) { alreadyRead = true; break; }
+            Book *old = findById(history[i]);          // a book the user read earlier
+            if (old == NULL) continue;                 // that book was deleted later
+            if (strcmp(old->genre, b->genre) == 0) s += 2;
+            if (strcmp(old->author, b->author) == 0) s += 3;
+        }
+        if (alreadyRead || s == 0) continue;           // skip read books and no-match books
+        cand[m] = b;
+        score[m] = s;
+        m++;
+    }
+
+    // ---- step 3: bubble sort, highest score first ----
+    for (int i = 0; i < m - 1; i++) {
+        for (int j = 0; j < m - 1 - i; j++) {
+            if (score[j] < score[j + 1]) {             // wrong order -> swap both arrays
+                Book *tb = cand[j];  cand[j] = cand[j + 1];   cand[j + 1] = tb;
+                int ts = score[j];   score[j] = score[j + 1]; score[j + 1] = ts;
+            }
         }
     }
 
-    // insertion sort, highest score first (equal scores keep file order)
-    for (int i = 1; i < m; i++) {
-        Book *kb = cand[i];
-        int ks = score[i];
-        int j = i - 1;
-        while (j >= 0 && score[j] < ks) {
-            cand[j + 1] = cand[j];
-            score[j + 1] = score[j];
-            j--;
-        }
-        cand[j + 1] = kb;
-        score[j + 1] = ks;
-    }
-
+    // ---- print ----
     if (m == 0) {
         cout << "No similar unread books found right now.\n";
-    } else {
-        cout << "Based on your reading history (genre and author):\n";
-        printf("%-5s %-40s %-20s %-12s %s\n", "ID", "Title", "Author", "Genre", "Score");
-        printf("---------------------------------------------------------------------------------------\n");
-        for (int i = 0; i < m && i < topN; i++)
-            printf("%-5d %-40.40s %-20.20s %-12.12s %d\n", cand[i]->id, cand[i]->title,
-                   cand[i]->author, cand[i]->genre, score[i]);
+        return;
     }
-
-    delete[] cand;
-    delete[] score;
-    for (int i = 0; i < 2; i++) delete rules[i];
+    cout << "Based on your reading history (genre and author):\n";
+    printf("%-5s %-40s %-20s %-12s %s\n", "ID", "Title", "Author", "Genre", "Score");
+    printf("---------------------------------------------------------------------------------------\n");
+    for (int i = 0; i < m && i < TOP_BOOKS; i++)
+        printf("%-5d %-40.40s %-20.20s %-12.12s %d\n", cand[i]->id, cand[i]->title,
+               cand[i]->author, cand[i]->genre, score[i]);
 }
 
 // ================= C. common user features (User class) =================
@@ -197,7 +160,7 @@ void Student::menu() {
             else cout << "You have not issued a book with this ID.\n";
         }
         else if (choice == 6) showUserHistory(username.c_str());
-        else if (choice == 7) rec.recommend(username, 5);
+        else if (choice == 7) rec.recommend(username);
         else if (choice != 0) cout << "Invalid choice.\n";
     } while (choice != 0);
 }
@@ -213,10 +176,10 @@ void Admin::addNewBook() {
         cout << "Title, author and genre cannot be empty.\n";
         return;
     }
-    if (addBook(id, title.c_str(), author.c_str(), genre.c_str()))
-        cout << "Book added.\n";
-    else
-        cout << "A book with this ID already exists.\n";
+    int r = addBook(id, title.c_str(), author.c_str(), genre.c_str());
+    if (r == 1) cout << "Book added.\n";
+    else if (r == 0) cout << "A book with this ID already exists.\n";
+    else cout << "The library is full (maximum " << MAX_BOOKS << " books).\n";
 }
 
 void Admin::removeBook() {
@@ -228,12 +191,17 @@ void Admin::removeBook() {
 }
 
 // users.txt line:  name|password|role
+// returns true if a user with this name is already in the file
 static bool userExists(const string &name) {
     FILE *f = fopen(USERS_FILE, "r");
-    char line[200], u[NAME_LEN];
+    char line[200];
+    char *parts[3];
     if (f == NULL) return false;
     while (fgets(line, sizeof(line), f) != NULL) {
-        if (sscanf(line, "%29[^|]|", u) == 1 && name == u) { fclose(f); return true; }
+        if (splitLine(line, parts, 3) == 3 && name == parts[0]) {   // splitLine is in list.c
+            fclose(f);
+            return true;
+        }
     }
     fclose(f);
     return false;
@@ -286,13 +254,14 @@ void Admin::menu() {
 // returned as a User* - the caller does not need to know which one it is.
 User *loginUser(const string &name, const string &password) {
     FILE *f = fopen(USERS_FILE, "r");
-    char line[200], u[NAME_LEN], p[NAME_LEN], role[20];
+    char line[200];
+    char *parts[3];                     // parts[0]=name, parts[1]=password, parts[2]=role
     if (f == NULL) return NULL;
     while (fgets(line, sizeof(line), f) != NULL) {
-        if (sscanf(line, "%29[^|]|%29[^|]|%19s", u, p, role) != 3) continue;
-        if (name == u && password == p) {
+        if (splitLine(line, parts, 3) != 3) continue;      // skip bad / blank line
+        if (name == parts[0] && password == parts[1]) {    // both must match
             fclose(f);
-            if (strcmp(role, "admin") == 0) return new Admin(name);
+            if (strcmp(parts[2], "admin") == 0) return new Admin(name);
             return new Student(name);
         }
     }

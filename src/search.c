@@ -6,7 +6,7 @@
  *           "Sorting by title, author, or popularity"
  * TOPICS  : 1) HASHING (chaining)          -> find a book by its ID
  *           2) BINARY SEARCH TREE (BST)    -> find a book by its title
- *           3) SORTING (insertion sort)    -> by title / author / popularity
+ *           3) SORTING (bubble sort)       -> by title / author / popularity
  * NOT HERE: linked list & files -> list.c (Member 1)
  *           menus, recommendation -> oop.cpp (Member 3)
  *
@@ -28,25 +28,31 @@
 #include "library.h"
 
 /* ---------------- A. helpers ---------------- */
-/* compare two texts ignoring upper/lower case (like strcmp) */
-static int compareText(const char *a, const char *b) {
-    while (*a && *b) {
-        int x = tolower((unsigned char)*a), y = tolower((unsigned char)*b);
-        if (x != y) return x - y;
-        a++; b++;
-    }
-    return tolower((unsigned char)*a) - tolower((unsigned char)*b);
+#define BUF 200      /* big enough for any title or search word we compare */
+
+/* copy src into dest in lower case (so "HARRY" and "harry" look the same) */
+static void toLower(const char *src, char *dest) {
+    int i;
+    for (i = 0; src[i] != '\0' && i < BUF - 1; i++)
+        dest[i] = (char)tolower((unsigned char)src[i]);
+    dest[i] = '\0';
 }
 
-/* does "text" contain "word" (ignoring case)? */
+/* compare two texts ignoring upper/lower case. Result like strcmp:
+   negative = a comes first, 0 = same, positive = b comes first */
+static int compareText(const char *a, const char *b) {
+    char x[BUF], y[BUF];
+    toLower(a, x);
+    toLower(b, y);
+    return strcmp(x, y);
+}
+
+/* does "text" contain "word" anywhere (ignoring case)? 1 = yes, 0 = no */
 static int containsText(const char *text, const char *word) {
-    int i, j, tl = (int)strlen(text), wl = (int)strlen(word);
-    for (i = 0; i + wl <= tl; i++) {
-        for (j = 0; j < wl; j++)
-            if (tolower((unsigned char)text[i + j]) != tolower((unsigned char)word[j])) break;
-        if (j == wl) return 1;
-    }
-    return 0;
+    char x[BUF], y[BUF];
+    toLower(text, x);
+    toLower(word, y);
+    return strstr(x, y) != NULL;
 }
 
 /* ================= B. HASHING (by book ID) =================
@@ -163,9 +169,10 @@ void buildIndexes(void) {
     }
 }
 
-/* ================= E. SORTING (insertion sort) =================
+/* ================= E. SORTING (bubble sort) =================
    mode 1 = title A-Z, mode 2 = author A-Z, mode 3 = most issued first */
-/* returns >0 if a should come AFTER b for the chosen mode */
+
+/* returns 1 if book a must come AFTER book b for the chosen mode */
 static int isAfter(const Book *a, const Book *b, int mode) {
     if (mode == 1) return compareText(a->title, b->title) > 0;
     if (mode == 2) return compareText(a->author, b->author) > 0;
@@ -173,25 +180,28 @@ static int isAfter(const Book *a, const Book *b, int mode) {
 }
 
 void showSorted(int mode) {
+    Book *arr[MAX_BOOKS];       /* pointers to the books (the linked list itself is not changed) */
+    Book *cur, *temp;
     int n = 0, i, j;
-    Book *cur, *key, **arr;
-    for (cur = getHead(); cur != NULL; cur = cur->next) n++;
-    if (n == 0) { printf("No books in the library.\n"); return; }
-    arr = (Book **)malloc(n * sizeof(Book *));
-    if (arr == NULL) return;
-    i = 0;
-    for (cur = getHead(); cur != NULL; cur = cur->next) arr[i++] = cur;
 
-    for (i = 1; i < n; i++) {            /* insertion sort */
-        key = arr[i];
-        j = i - 1;
-        while (j >= 0 && isAfter(arr[j], key, mode)) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
+    for (cur = getHead(); cur != NULL && n < MAX_BOOKS; cur = cur->next) {
+        arr[n] = cur;
+        n++;
     }
+    if (n == 0) { printf("No books in the library.\n"); return; }
+
+    /* bubble sort: compare neighbours, swap them if they are in the wrong order.
+       After each round the "biggest" item has moved to the end. */
+    for (i = 0; i < n - 1; i++) {
+        for (j = 0; j < n - 1 - i; j++) {
+            if (isAfter(arr[j], arr[j + 1], mode)) {
+                temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+
     printBookHeader();
     for (i = 0; i < n; i++) displayBook(arr[i]);
-    free(arr);
 }

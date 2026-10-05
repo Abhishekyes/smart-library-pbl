@@ -62,9 +62,12 @@ Proj_3p/
 |   |-- Viva_QnA.md           viva questions with simple answers
 |   |-- test_output.txt       saved output of the last test run
 |   |-- Code_Walkthrough.md   what every folder/file/function is
-|   `-- Deep_Dive.md          how files connect + line-by-line code
+|   |-- Deep_Dive.md          how files connect + call chains
+|   |-- Code_Explained.md     all code with explanations
+|   |-- Language_and_Compiler.md   C vs C++ and GCC
+|   `-- Debugging_Guide.md    step-by-step debugging
 |-- Makefile             build instructions (one command: make)
-|-- run_tests.sh         14 automatic tests (PASS/FAIL)
+|-- run_tests.sh         17 automatic tests (PASS/FAIL)
 |-- README.md            quick start, demo logins, work split
 `-- .gitignore           files Git must NOT upload (compiled files)
 ```
@@ -87,7 +90,7 @@ Files created when you build (not uploaded to GitHub): `src/*.o` (compiled piece
 ### 3.2 `run_tests.sh` - automatic tester (Member 2)
 - Feeds pre-written keystrokes to `./library` (like a robot typing), cleans the menus out of the output, and checks that expected sentences appear.
 - Before **every** test it resets `data/` from `data_sample/`, so tests never affect each other.
-- Prints `PASS`/`FAIL` for each test and a final `RESULT: 14 passed, 0 failed`.
+- Prints `PASS`/`FAIL` for each test and a final `RESULT: 17 passed, 0 failed`.
 - Run: `make && bash run_tests.sh`. (Needs bash: Mac/Linux/Git-Bash. Not for plain Windows cmd.)
 
 ### 3.3 `README.md`
@@ -148,6 +151,7 @@ A **header file** lists what exists (structures and function names) so other fil
 |---|---|---|
 | `TITLE_LEN`, `AUTHOR_LEN`, `GENRE_LEN`, `NAME_LEN` | 60, 40, 30, 30 | Maximum text sizes (fixed-size character arrays) |
 | `MAX_HISTORY` | 200 | Max borrowed-book ids kept per user for recommendation |
+| `MAX_BOOKS` | 500 | Max books in the library (fixed-size arrays are used instead of new/delete) |
 | `BOOKS_FILE`, `ISSUES_FILE` | `"data/books.txt"`, `"data/issues.txt"` | File paths (relative - run the program from the project folder) |
 
 ### 5.2 `struct Book` - one node of the linked list
@@ -166,8 +170,9 @@ C and C++ store function names differently internally. This wrapper tells the C+
 | Function | File | Returns / does |
 |---|---|---|
 | `loadBooks()` / `saveBooks()` | list.c | Read / write books file |
+| `splitLine(line, parts, max)` | list.c | Cut a text line at every pipe character; returns the number of pieces (used for books, issues and users files) |
 | `getHead()` | list.c | Gives the first node of the list |
-| `addBook(id,title,author,genre)` | list.c | `1` added, `0` duplicate id |
+| `addBook(id,title,author,genre)` | list.c | `1` added, `0` duplicate id, `-1` library full |
 | `deleteBook(id)` | list.c | `1` deleted, `0` not found, `-1` book is issued |
 | `printBookHeader()`, `displayBook()` | list.c | Print table rows |
 | `issueBook(user,id)` | list.c | `1` ok, `0` no such book, `-1` already issued |
@@ -192,15 +197,17 @@ C and C++ store function names differently internally. This wrapper tells the C+
 ### 6.2 Functions, one by one
 | Function | What it does, step by step |
 |---|---|
-| `cleanText(dest, src, size)` | Copies text safely (never more than `size-1` characters) and turns any `|` or newline into a space, so a user cannot break the file format. |
+| `splitLine(line, parts, max)` | Removes the newline (`\r\n`) at the end of the line, then uses `strtok(line, "|")` repeatedly to cut it into pieces. Example: `"201|The Hobbit|Tolkien"` gives `"201"`, `"The Hobbit"`, `"Tolkien"`. Used by the books, issues **and** users files. |
+| `countBooks()` | Walks the list and counts the nodes (used to stop at `MAX_BOOKS`). |
+| `cleanText(dest, src, size)` | Copies text safely (never more than `size-1` characters) and turns any pipe or newline into a space, so a user cannot break the file format. |
 | `freeList()` | Walks the list, `free()`s every node (gives memory back), sets `head = NULL`. |
 | `appendNode(node)` | Puts a node at the **end**: if list empty -> it becomes `head`; otherwise walk to the last node and link it. |
-| `loadBooks()` | Opens `books.txt`; reads line by line with `fgets`; `sscanf` splits at `|` into a new node (`%59[^|]` = "read up to 59 characters until a `|`"); a line that doesn't have 6 fields is skipped. Finally calls `buildIndexes()`. If the file is missing -> starts with an empty library. |
+| `loadBooks()` | Opens `books.txt`; reads line by line with `fgets`; `splitLine` cuts the line into 6 pieces (a line without exactly 6 pieces is skipped); `malloc` makes a node; `atoi` turns the number texts into numbers; `cleanText` copies the texts; `appendNode` adds it. Stops at `MAX_BOOKS`. Finally `buildIndexes()`. If the file is missing -> starts with an empty library. |
 | `saveBooks()` | Opens `books.txt` for writing and prints every node as one line. |
-| `addBook()` | Refuse if `findById(id)` already finds that id; else make a node, clean the texts, set `available=1, timesIssued=0`, append, save, rebuild indexes. |
+| `addBook()` | Refuse if `findById(id)` already finds that id (`0`) or the library is full (`-1`); else make a node, clean the texts, set `available=1, timesIssued=0`, append, save, rebuild indexes. |
 | `deleteBook()` | Walk with two pointers (`prev`, `cur`) to the node; refuse if missing or issued; else **re-link** `prev->next = cur->next` (or move `head`), `free(cur)`, save, rebuild indexes. |
 | `printBookHeader()`, `displayBook()` | Formatted table printing. `%-40.40s` = left-aligned, exactly 40 wide, cut if longer. |
-| `readRecords()` | Loads all lines of `issues.txt` into `records[]`, returns the count. |
+| `readRecords()` | Loads all lines of `issues.txt` into `records[]` (using `splitLine`, 3 pieces per line), returns the count. |
 | `writeRecords(n)` | Writes `records[]` back to `issues.txt`. |
 | `issueBook(user,id)` | Find book via hash; not found -> `0`; already issued -> `-1`; else `available=0`, `timesIssued++`, **append** `user|id|ISSUED` to the history file, save books, return `1`. |
 | `returnBook(user,id)` | Load history; find the line with this user + id + `ISSUED`; change it to `RETURNED`; rewrite file; set book `available=1`; save books. If no such line -> `0` (so you cannot return someone else's book). |
@@ -210,7 +217,7 @@ C and C++ store function names differently internally. This wrapper tells the C+
 
 ### 6.3 Concepts used here
 - **Linked list** - see section 11.1.
-- **File handling** - `fopen` (open), `fgets` (read a line), `sscanf` (split a line), `fprintf` (write), `fclose` (close). Modes: `"r"` read, `"w"` overwrite, `"a"` append.
+- **File handling** - `fopen` (open), `fgets` (read a line), `strtok` (cut a line at `|`, inside `splitLine`), `fprintf` (write), `fclose` (close). Modes: `"r"` read, `"w"` overwrite, `"a"` append.
 - **Dynamic memory** - `malloc` creates a node, `free` releases it.
 
 ---
@@ -218,8 +225,9 @@ C and C++ store function names differently internally. This wrapper tells the C+
 ## 7. `src/search.c` - Member 2 (hashing, BST, sorting)
 
 ### 7.1 Helpers
-- `compareText(a, b)` - like `strcmp` but ignores upper/lower case. Returns negative / 0 / positive.
-- `containsText(text, word)` - is `word` anywhere inside `text` (case-ignored)?
+- `toLower(src, dest)` - copies a text in lower case (limited to `BUF` = 200 characters so a long search word can never overflow).
+- `compareText(a, b)` - lower-cases both texts, then uses the normal `strcmp`. Result: negative (a first) / 0 (same) / positive. So `HARRY` and `harry` are equal.
+- `containsText(text, word)` - lower-cases both, then `strstr` (find a piece of text inside another). 1 = found.
 
 ### 7.2 Hashing (`findById`)
 - A **hash table** is an array of 101 slots (`table[101]`). The slot of a book is **`id % 101`** (remainder).
@@ -239,23 +247,20 @@ C and C++ store function names differently internally. This wrapper tells the C+
 Clears the hash table and tree, then walks the linked list once and inserts every book into both. Called after load, add and delete (issue/return only change fields inside the same nodes, so no rebuild is needed).
 
 ### 7.5 Sorting (`showSorted(mode)`)
-1. Count books, copy their **pointers** into an array `arr`.
-2. **Insertion sort**: take each element (`key`) and slide bigger ones one step right until `key` fits.
-3. `isAfter(a, b, mode)` decides order: mode 1 title A-Z, mode 2 author A-Z, mode 3 most `timesIssued` first.
-4. Print the array, `free` it. The original linked list order is **not** changed.
+1. Copy the **pointers** of the books into a fixed array `arr[MAX_BOOKS]` (the linked list order is not changed).
+2. **Bubble sort**: compare neighbours `arr[j]` and `arr[j+1]`; if they are in the wrong order, swap them. After every round the "biggest" item has moved to the end, so the next round needs one comparison less.
+3. `isAfter(a, b, mode)` decides the order: mode 1 title A-Z, mode 2 author A-Z, mode 3 most `timesIssued` first.
+4. Print the array. (No `malloc`/`free` needed - a fixed array is used.)
 
-Small example (sort 5, 2, 4): start `[5,2,4]` -> insert 2: `[2,5,4]` -> insert 4: `[2,4,5]`.
-
----
+Small example (sort 5, 2, 4): round 1: `[5,2,4]` -> swap -> `[2,5,4]` -> swap -> `[2,4,5]`. Round 2: no swap needed -> done.
 
 ## 8. `src/oop.h` and `src/oop.cpp` - Member 3 (C++ classes)
 
 ### 8.1 Class map
 ```
-User  (abstract)               Rule (abstract)
- |-- Student                    |-- GenreRule     (+2)
- |-- Admin                      |-- AuthorRule    (+3)
-                              Recommender (uses the Rules)
+User  (abstract)               Recommender  (separate class, suggests books)
+ |-- Student
+ |-- Admin
 ```
 - **Abstract class** = has at least one `= 0` function (a *pure virtual* function: "children MUST write this"). You cannot create an object of an abstract class.
 - **`virtual`** = "decide at run time which child's version to run" = **polymorphism**.
@@ -264,13 +269,15 @@ User  (abstract)               Rule (abstract)
 - `readLine(prompt)` - prints prompt, reads a whole line; if input ends (Ctrl+D / test file ends) it exits cleanly instead of looping forever.
 - `readInt(prompt)` - `readLine` + `atoi` (text to number; letters give `0`, which the menus treat as invalid/exit).
 
-### 8.3 Recommendation code
-| Piece | What it does |
+### 8.3 Recommendation code (`Recommender::recommend`)
+| Step | What it does |
 |---|---|
-| `Rule` | Base class. Stores the user's history ids in `history[]` and how many in `count`. Declares `virtual int score(const Book*) = 0`. |
-| `GenreRule::score(b)` | Loops over the history; for each past book with the **same genre** as `b` adds **+2**. |
-| `AuthorRule::score(b)` | Same, but same **author**, **+3**. |
-| `Recommender::recommend(user, topN)` | 1) `getUserHistory` (C). 2) **No history -> prints a message and stops.** 3) Creates a `GenreRule` and an `AuthorRule`, stored as `Rule*` pointers. 4) For each book not already read: `score = sum of rules[r]->score(b)` (**polymorphic call**); keep only score > 0. 5) **Insertion sort**, highest score first (equal scores keep the books-file order). 6) Print top `topN` (5). 7) `delete` the arrays and rules (free memory). |
+| 1 | `getUserHistory` (C) fills `history[]` with the ids the user borrowed. **No history -> prints a message and stops.** |
+| 2 | Fixed arrays `cand[MAX_BOOKS]` (candidate books) and `score[MAX_BOOKS]` (their scores). No `new`/`delete` needed. |
+| 3 | For every book in the library: loop over the history. If the user already read this book -> skip it. Otherwise, for each history book (found with `findById`): **same genre -> +2**, **same author -> +3**. |
+| 4 | Books with score 0 are dropped. The rest go into `cand` / `score`. |
+| 5 | **Bubble sort** on both arrays, highest score first (equal scores keep the books-file order). |
+| 6 | Print the top 5 (`TOP_BOOKS`). |
 
 **Worked example (priya).** History: 201 (Fantasy, J K Rowling), 203 (Fantasy, J R R Tolkien), 102 (Programming).
 
@@ -310,7 +317,11 @@ Reads `users.txt` line by line; if name and password both match, returns `new Ad
 | `Project_Report.docx` | Full report: problem, objectives, architecture, concepts, algorithm, tests, limitations, work split | Submission; fill names/roll numbers on page 1 |
 | `Viva_QnA.md` | Likely viva questions with simple answers per member | Viva preparation |
 | `test_output.txt` | Output of the last `run_tests.sh` run | Proof of testing |
-| `Code_Walkthrough.md` | This guide | Understanding / revision |
+| `Code_Walkthrough.md` | This guide: what every folder, file and function is | Understanding / revision |
+| `Deep_Dive.md` | Who calls whom, who owns data, call chains | Understanding the structure |
+| `Code_Explained.md` | Every source file with its code and an explanation under each part | Reading the code |
+| `Language_and_Compiler.md` | C vs C++ and GCC build steps | Setup / viva |
+| `Debugging_Guide.md` | Step-by-step debugging with real error messages | When something breaks |
 
 ---
 
@@ -331,19 +342,19 @@ Reads `users.txt` line by line; if name and password both match, returns `new Ad
 - **Works:** title lookup and A-Z listing. Example: `the hobbit` found in a few comparisons.
 - **Doesn't:** when titles are inserted already sorted, the tree becomes a chain (slow). Partial search still visits every node.
 
-### 11.4 Insertion sort (search.c, recommender)
-- **Theory:** grow a sorted part by inserting each next item into place.
-- **Works:** hundreds of books; stable (equal items keep their order).
-- **Doesn't:** very big data - about n x n steps.
+### 11.4 Bubble sort (search.c, recommender)
+- **Theory:** repeatedly compare neighbours and swap them if they are in the wrong order; the biggest item "bubbles" to the end each round.
+- **Works:** a few hundred books; very easy to read and explain; stable (equal items keep their order).
+- **Doesn't:** very big data - about n x n steps (100,000 books would be far too slow).
 
 ### 11.5 File handling
 - **Works:** small data, human-readable, easy backup.
 - **Doesn't:** many users at once; the whole file is rewritten on each change.
 
 ### 11.6 Classes, inheritance, polymorphism
-- **Classes:** bundle data + functions (`User`, `Rule`).
+- **Classes:** bundle data + functions (`User`, `Student`, `Admin`, `Recommender`).
 - **Inheritance:** child reuses parent (`Student`/`Admin` get `searchByTitle` etc. from `User`).
-- **Polymorphism:** one call, different behaviour (`u->menu()`, `rules[r]->score(b)`).
+- **Polymorphism:** one call, different behaviour (`u->menu()` runs the Student or the Admin menu).
 - **Doesn't help:** tiny programs where a plain function is enough, or deep hierarchies that confuse readers.
 
 ### 11.7 Recommendation by genre/author/history
@@ -357,11 +368,11 @@ Reads `users.txt` line by line; if name and password both match, returns `new Ad
 |---|---|---|
 | Passwords stored as plain text | Anyone can read `users.txt` | Store a hash |
 | BST not balanced | Sorted inserts make it slow | AVL / balanced tree |
-| Insertion sort | n x n steps | Quick/merge sort |
+| Bubble sort | n x n steps | Quick/merge sort |
 | One copy per book | Cannot hold duplicate copies | Add a "copies" field |
 | No due dates/fines | Real libraries need them | Store dates |
 | Recommended book may be currently issued | Recommendation ignores availability | Filter `available == 1` |
-| Max 2000 history lines, 200 per user | Fixed-size arrays | Dynamic arrays |
+| Max 500 books, 2000 history lines, 200 per user | Fixed-size arrays (simple, but limited) | Dynamic arrays |
 | Console only | Not user-friendly for all | GUI/web |
 
 ---
@@ -381,8 +392,11 @@ Reads `users.txt` line by line; if name and password both match, returns `new Ad
 | T9 | Admin issued report; duplicate username refused | Pass |
 | T11 | Invalid menu input does not crash | Pass |
 | T12 | Changes really saved in books.txt / issues.txt | Pass |
+| T13 | Very long search word does not crash | Pass |
+| T14 | Data files with Windows (CRLF) line endings work | Pass |
+| T15 | Missing books.txt: starts with an empty library | Pass |
 
-**Total: 14 passed, 0 failed.** Extra checks done: compiled with `-Wall -Wextra` (0 warnings) and valgrind memory check (0 errors, no leaks).
+**Total: 17 passed, 0 failed.** Extra checks done: compiled with `-Wall -Wextra` (0 warnings) and valgrind memory check (0 errors, no leaks) and AddressSanitizer (0 errors).
 
 ---
 

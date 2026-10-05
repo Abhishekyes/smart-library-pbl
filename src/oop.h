@@ -4,17 +4,15 @@
 // PPT     : "OOP model (Book, User, Library) with inheritance & polymorphism",
 //           "Role-based access for Student and Admin accounts",
 //           "Personalized recommendations by genre, author & reading history"
-// TOPICS  : 1) CLASSES       - User, Student, Admin, Rule, Recommender
-//           2) INHERITANCE   - Student and Admin inherit User;
-//                              GenreRule and AuthorRule inherit Rule
-//           3) POLYMORPHISM  - virtual menu() and virtual score()
+// TOPICS  : 1) CLASSES       - User, Student, Admin, Recommender
+//           2) INHERITANCE   - Student and Admin inherit User
+//           3) POLYMORPHISM  - virtual menu(): same call, different menu per role
 // NOT HERE: linked list / files -> list.c, hashing / BST / sorting -> search.c
 //
 // CLASS MAP
-//   User (abstract)               Rule (abstract)
-//    |-- Student                   |-- GenreRule
-//    |-- Admin                     |-- AuthorRule
-//                                Recommender  (uses the Rule classes)
+//   User (abstract)        Recommender (separate class: suggests books)
+//    |-- Student
+//    |-- Admin
 // ====================================================================
 #ifndef OOP_H
 #define OOP_H
@@ -28,36 +26,15 @@
 std::string readLine(const char *prompt);
 int readInt(const char *prompt);
 
-// ---------- recommendation rules (POLYMORPHISM) ----------
-// A Rule gives a score to a book. Each child class decides HOW it scores,
-// but the Recommender calls them all in the same way: rule->score(book).
-class Rule {
-protected:
-    int history[MAX_HISTORY];      // ids of the books the user has borrowed before
-    int count;                     // how many ids are stored
-public:
-    Rule(const int ids[], int n);
-    virtual ~Rule() {}
-    virtual int score(const Book *b) = 0;   // pure virtual: children must define it
-};
+// ---------- recommendation (genre + author + reading history) ----------
+// Gives every book the user has NOT read a score and prints the best ones:
+//   +2 points for every book in the history with the same genre
+//   +3 points for every book in the history with the same author
+#define TOP_BOOKS 5            // how many suggestions to show
 
-class GenreRule : public Rule {            // +2 for every past book of the same genre
-public:
-    GenreRule(const int ids[], int n) : Rule(ids, n) {}
-    int score(const Book *b);
-};
-
-class AuthorRule : public Rule {           // +3 for every past book of the same author
-public:
-    AuthorRule(const int ids[], int n) : Rule(ids, n) {}
-    int score(const Book *b);
-};
-
-// Reads the user's reading history, scores every unread book with the
-// rules above and prints the best ones.
 class Recommender {
 public:
-    void recommend(const std::string &user, int topN);
+    void recommend(const std::string &user);
 };
 
 // ---------- users (INHERITANCE + role-based access) ----------

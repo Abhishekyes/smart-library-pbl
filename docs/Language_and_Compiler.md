@@ -4,9 +4,9 @@
 
 | Part | Language | Files | Lines | Why this language |
 |---|---|---|---|---|
-| Library Core Engine | **C** | `list.c`, `search.c` | 457 | Linked list, hashing, BST, sorting, file handling are Data-Structures-in-C topics: direct memory control (`malloc`/`free`, pointers) and speed. |
-| Shared header | **C** (readable by C++) | `library.h` | 67 | Book structure + function list; `extern "C"` makes it usable from C++. |
-| OOP + Recommendation layer | **C++** | `oop.h`, `oop.cpp`, `main.cpp` | 446 | Classes, inheritance, polymorphism are OOPs-with-C++ topics. |
+| Library Core Engine | **C** | `list.c`, `search.c` | 498 | Linked list, hashing, BST, sorting, file handling are Data-Structures-in-C topics: direct memory control (`malloc`/`free`, pointers) and speed. |
+| Shared header | **C** (readable by C++) | `library.h` | 69 | Book structure + function list; `extern "C"` makes it usable from C++. |
+| OOP + Recommendation layer | **C++** | `oop.h`, `oop.cpp`, `main.cpp` | 392 | Classes, inheritance, polymorphism are OOPs-with-C++ topics. |
 | Support (not program code) | Makefile, bash | `Makefile`, `run_tests.sh` | - | Build and test automation. |
 
 So: **about half the code is C and half is C++**, exactly as the PPT says ("C for the core engine, C++ OOP for recommendation and user management").
@@ -20,7 +20,7 @@ So: **about half the code is C and half is C++**, exactly as the PPT says ("C fo
 | Item | Detail |
 |---|---|
 | C code style | Plain C: `/* */` comments, variables declared at the top of functions, no special features. Works with any C compiler (even very old). |
-| C++ code style | Basic C++ only: classes, inheritance, `virtual`, `new`/`delete`, `std::string`, `cin/cout`. **No STL containers (no vector/map), no lambdas, no templates**, nothing newer than the course topics. |
+| C++ code style | Basic C++ only: classes, inheritance, `virtual`, `std::string`; `new`/`delete` only for the Student/Admin object at login, `cin/cout`. **No STL containers (no vector/map), no lambdas, no templates**, nothing newer than the course topics. |
 | Default standard | GCC picks it automatically (C: GNU17, C++: GNU++17 on GCC 11+). The code does not depend on it. |
 
 ## 2. Compiler: GCC (as in the PPT: "Compiler: GCC, IDE: Code::Blocks")
@@ -68,7 +68,7 @@ g++ -o library src/list.o src/search.o src/oop.o src/main.o
 | **Linux** | `sudo apt install build-essential` | Gives gcc, g++, make |
 | **Mac** | `xcode-select --install` | The commands `gcc` / `g++` actually run Apple's **Clang** (same behaviour for this project). |
 
-This project was built and tested with **GCC 11.4 (Ubuntu)**: 0 warnings, 14/14 tests passed, valgrind showed 0 memory errors.
+This project was built and tested with **GCC 11.4 (Ubuntu)**: 0 warnings, 17/17 tests passed, valgrind showed 0 memory errors.
 
 ### 2.4 Code::Blocks setup (IDE)
 1. File > New > Project > **Empty project**.

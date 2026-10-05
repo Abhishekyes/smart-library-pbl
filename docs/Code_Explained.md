@@ -9,7 +9,7 @@ Under every code block you get a plain-language explanation. The code is copied 
 | 1 | `src/library.h` | shared (Member 1) | Common header: `Book` structure + list of C functions |
 | 2 | `src/list.c` | Member 1 | Linked list, file handling, add/delete/issue/return |
 | 3 | `src/search.c` | Member 2 | Hashing, BST, sorting |
-| 4 | `src/oop.h` | Member 3 | Class declarations (User, Student, Admin, Rule, Recommender) |
+| 4 | `src/oop.h` | Member 3 | Class declarations (User, Student, Admin, Recommender) |
 | 5 | `src/oop.cpp` | Member 3 | Class code: recommendation, menus, login |
 | 6 | `src/main.cpp` | Member 2 | Program start + login loop |
 
@@ -55,23 +55,24 @@ extern "C" {
 - `extern "C" {` (only when a C++ compiler reads it) tells C++: "the functions below were compiled as **C**". Without this, linking C and C++ together fails because C++ renames functions internally (*name mangling*).
 - C compilers skip this part (they do not define `__cplusplus`).
 
-### `library.h` lines 23-30
+### `library.h` lines 23-31
 
 ```c
 #define TITLE_LEN   60
 #define AUTHOR_LEN  40
 #define GENRE_LEN   30
 #define NAME_LEN    30
-#define MAX_HISTORY 200
+#define MAX_HISTORY 200   /* max books remembered per user for recommendation */
+#define MAX_BOOKS   500   /* max books in the library (fixed-size arrays) */
 
 #define BOOKS_FILE  "data/books.txt"
 #define ISSUES_FILE "data/issues.txt"
 ```
 
-- `#define` = a named constant. These are the maximum text sizes and limits used everywhere.
+- `#define` = a named constant. These are the maximum text sizes and limits used everywhere. `MAX_BOOKS` (500) and `MAX_HISTORY` (200) are the sizes of the **fixed arrays** used in sorting and recommendation (no `malloc` needed there = fewer bugs).
 - `BOOKS_FILE` / `ISSUES_FILE` are *relative paths*: the program must be started from the project folder so `data/` is found.
 
-### `library.h` lines 32-41
+### `library.h` lines 33-42
 
 ```c
 /* One book = one node of the linked list */
@@ -91,14 +92,15 @@ typedef struct Book {
 - `struct Book *next` is a *pointer* (memory address) to the next book. This single field is what makes the books a **linked list**.
 - `typedef ... Book;` lets us write `Book` instead of `struct Book`.
 
-### `library.h` lines 43-55
+### `library.h` lines 44-57
 
 ```c
 /* ---------- list.c  [Member 1] : linked list, file handling, issue/return ---------- */
 void  loadBooks(void);
+int   splitLine(char *line, char *parts[], int max);  /* cut a line at each '|' */
 void  saveBooks(void);
 Book *getHead(void);
-int   addBook(int id, const char *title, const char *author, const char *genre);
+int   addBook(int id, const char *title, const char *author, const char *genre); /* 1 ok, 0 duplicate id, -1 library full */
 int   deleteBook(int id);              /* 1 ok, 0 not found, -1 book is issued */
 void  printBookHeader(void);
 void  displayBook(const Book *b);
@@ -110,10 +112,11 @@ void  displayIssuedBooks(void);
 ```
 
 - The **function list for list.c** (Member 1's work). Only names and parameter types here; the real code is in `list.c`. This is called a *declaration* (prototype).
-- Return codes are documented in the comments (e.g. `deleteBook`: 1 ok, 0 not found, -1 issued).
+- `splitLine` is the small helper that cuts a data-file line at every `|`; `oop.cpp` uses it too (for `users.txt`).
+- Return codes are documented in the comments (e.g. `deleteBook`: 1 ok, 0 not found, -1 issued; `addBook`: 1 ok, 0 duplicate id, -1 library full).
 - `const char *` = "text I will only read, not change".
 
-### `library.h` lines 57-62
+### `library.h` lines 59-64
 
 ```c
 /* ---------- search.c [Member 2] : hashing, BST, sorting ---------- */
@@ -126,7 +129,7 @@ void  showSorted(int mode);                /* 1 title, 2 author, 3 popularity */
 
 - The **function list for search.c** (Member 2's work): `findById` (hashing), `findByTitle` and `searchTitleContains` (BST), `showSorted` (sorting), and `buildIndexes` (fills the hash table and the BST).
 
-### `library.h` lines 64-67
+### `library.h` lines 66-69
 
 ```c
 #ifdef __cplusplus
@@ -206,7 +209,46 @@ static void cleanText(char *dest, const char *src, int size) {
 - `Record` + `records[2000]` = one line of `issues.txt` (`user | bookId | status`) held in memory while we read or rewrite the history file.
 - `cleanText` copies text safely: `strncpy` never copies more than `size-1` characters, then we force the ending `\0` (end-of-text marker). Any `|` or newline becomes a space, so a user cannot break the `|`-separated file format.
 
-### `list.c` lines 48-57
+### `list.c` lines 48-62
+
+```c
+/* Cut one line of a data file at every '|' character.
+   Example: "201|The Hobbit|Tolkien"  ->  parts[0]="201", parts[1]="The Hobbit", parts[2]="Tolkien"
+   Returns how many pieces were found (at most max). Used for books, issues and users files. */
+int splitLine(char *line, char *parts[], int max) {
+    int n = 0;
+    char *p;
+    line[strcspn(line, "\r\n")] = '\0';      /* remove the newline at the end of the line */
+    p = strtok(line, "|");
+    while (p != NULL && n < max) {
+        parts[n] = p;
+        n++;
+        p = strtok(NULL, "|");
+    }
+    return n;
+}
+```
+
+- `strcspn(line, "\r\n")` finds where the newline starts, and we put `\0` (end of text) there, so Windows (`\r\n`) and Linux (`\n`) files both work.
+- `strtok(line, "|")` returns the first piece up to the next `|`; calling `strtok(NULL, "|")` returns the following pieces. We store each piece's address in `parts[]` and count them.
+- The caller checks the count: a book line must give **6** pieces, an issue line **3**, a user line **3**. A damaged line gives a different number and is skipped.
+- Note: `strtok` changes the line (puts `\0` where `|` was), so `parts[]` points *inside* `line` - the line must stay alive while `parts` is used.
+
+### `list.c` lines 64-70
+
+```c
+/* how many books are in the linked list right now */
+static int countBooks(void) {
+    int n = 0;
+    Book *cur;
+    for (cur = head; cur != NULL; cur = cur->next) n++;
+    return n;
+}
+```
+
+- Walks the list and counts the nodes. Used by `loadBooks` so the library can never grow beyond `MAX_BOOKS` (`addBook` checks it too).
+
+### `list.c` lines 72-81
 
 ```c
 /* ---------------- A + B. linked list helpers and books file ---------------- */
@@ -224,7 +266,7 @@ static void freeList(void) {
 - Walks the list; for each node it first remembers the next one (`nxt`), then `free(cur)` gives that memory back. (If we freed first we would lose the link.)
 - Sets `head = NULL` (= empty list). Used by `loadBooks` before reloading.
 
-### `list.c` lines 59-66
+### `list.c` lines 83-90
 
 ```c
 static void appendNode(Book *node) {
@@ -241,13 +283,14 @@ static void appendNode(Book *node) {
 - Picture: `head -> [A] -> [B]` becomes `head -> [A] -> [B] -> [NEW]`.
 - Limitation: it walks the whole list every time (slow for huge libraries).
 
-### `list.c` lines 68-92
+### `list.c` lines 92-119
 
 ```c
 /* read data/books.txt, create one linked-list node per line */
 void loadBooks(void) {
     FILE *f = fopen(BOOKS_FILE, "r");
     char line[300];
+    char *parts[6];
     Book *b;
     freeList();
     if (f == NULL) {
@@ -256,15 +299,17 @@ void loadBooks(void) {
         return;
     }
     while (fgets(line, sizeof(line), f) != NULL) {
-        b = (Book *)malloc(sizeof(Book));
+        if (splitLine(line, parts, 6) != 6) continue;    /* skip blank / bad line */
+        if (countBooks() >= MAX_BOOKS) break;            /* library is full */
+        b = (Book *)malloc(sizeof(Book));                /* one new node */
         if (b == NULL) break;
-        if (sscanf(line, "%d|%59[^|]|%39[^|]|%29[^|]|%d|%d",
-                   &b->id, b->title, b->author, b->genre,
-                   &b->available, &b->timesIssued) == 6) {
-            appendNode(b);
-        } else {
-            free(b);   /* skip bad / blank line */
-        }
+        b->id = atoi(parts[0]);                          /* atoi: text -> number */
+        cleanText(b->title,  parts[1], TITLE_LEN);
+        cleanText(b->author, parts[2], AUTHOR_LEN);
+        cleanText(b->genre,  parts[3], GENRE_LEN);
+        b->available   = atoi(parts[4]);
+        b->timesIssued = atoi(parts[5]);
+        appendNode(b);
     }
     fclose(f);
     buildIndexes();
@@ -272,12 +317,11 @@ void loadBooks(void) {
 ```
 
 - `fopen(..., "r")` opens `books.txt` for reading; `NULL` means the file is missing -> start with an empty library.
-- `fgets` reads one line at a time. For each line: `malloc` makes one new `Book` node, `sscanf` splits the line at `|` and fills the fields.
-  - `%d` = number, `%59[^|]` = "up to 59 characters, stop at the next `|`", `&` = address of the field (sscanf must write into it).
-  - It returns how many fields it read; `== 6` means the line was complete -> `appendNode`. Otherwise the half-broken line is skipped and its memory freed.
+- `fgets` reads one line at a time into `line[]`. `splitLine` cuts it into `parts[]`; **exactly 6 parts** means a complete line, otherwise the line is skipped.
+- For a good line: `malloc` makes one `Book` node, `atoi` turns the number texts into ints (`id`, `available`, `timesIssued`), `cleanText` copies the texts safely, then `appendNode` adds it to the list. Loading stops at `MAX_BOOKS`.
 - At the end `buildIndexes()` (from `search.c`) fills the hash table and BST from the finished list.
 
-### `list.c` lines 94-103
+### `list.c` lines 121-130
 
 ```c
 /* write the whole linked list back to data/books.txt */
@@ -295,15 +339,16 @@ void saveBooks(void) {
 - Opens `books.txt` with `"w"` (overwrite) and writes every node as one `|`-separated line using `fprintf` (like `printf` but into a file).
 - Called after every change (add, delete, issue, return), so data is never lost.
 
-### `list.c` lines 105-123
+### `list.c` lines 132-151
 
 ```c
 /* ---------------- C. add / delete a book (linked list operations) ---------------- */
 /* add a new book at the END of the linked list, then save the file.
-   returns 1 = added, 0 = a book with this id already exists */
+   returns 1 = added, 0 = a book with this id already exists, -1 = library is full */
 int addBook(int id, const char *title, const char *author, const char *genre) {
     Book *b;
     if (findById(id) != NULL) return 0;          /* duplicate id */
+    if (countBooks() >= MAX_BOOKS) return -1;    /* library is full */
     b = (Book *)malloc(sizeof(Book));
     if (b == NULL) return 0;
     b->id = id;
@@ -322,7 +367,7 @@ int addBook(int id, const char *title, const char *author, const char *genre) {
 - First `findById(id)` (hashing): if that id already exists -> return 0 (duplicate).
 - `malloc` a new node, copy the texts through `cleanText`, set `available = 1` and `timesIssued = 0`, `appendNode`, save the file, rebuild the indexes (so hash/BST know the new book). Return 1.
 
-### `list.c` lines 125-141
+### `list.c` lines 153-169
 
 ```c
 /* delete a node: link the previous node to the next one, then free() it.
@@ -349,7 +394,7 @@ int deleteBook(int id) {
 - Deleting the first node: `head` moves forward. Otherwise `prev->next = cur->next` makes the list **skip** the node: `[A] -> [B] -> [C]` becomes `[A] -> [C]`.
 - `free(cur)` releases memory; then save and `buildIndexes()` - essential, otherwise the hash table/BST would still point to freed memory.
 
-### `list.c` lines 143-154
+### `list.c` lines 171-182
 
 ```c
 /* ---------------- D. display ---------------- */
@@ -370,7 +415,7 @@ void displayBook(const Book *b) {
 - `displayBook` prints one row; `b->available ? "Available" : "Issued"` is the *ternary* shortcut for if/else.
 - Also used by `search.c` and `oop.cpp`, so every table looks the same.
 
-### `list.c` lines 156-171
+### `list.c` lines 184-202
 
 ```c
 /* ---------------- E + F. issue history file and issue / return ----------------
@@ -379,22 +424,25 @@ void displayBook(const Book *b) {
 static int readRecords(void) {
     FILE *f = fopen(ISSUES_FILE, "r");
     char line[200];
+    char *parts[3];
     int n = 0;
     if (f == NULL) return 0;
     while (n < MAX_RECORDS && fgets(line, sizeof(line), f) != NULL) {
-        if (sscanf(line, "%29[^|]|%d|%9s",
-                   records[n].user, &records[n].bookId, records[n].status) == 3)
-            n++;
+        if (splitLine(line, parts, 3) != 3) continue;    /* skip blank / bad line */
+        cleanText(records[n].user, parts[0], NAME_LEN);
+        records[n].bookId = atoi(parts[1]);
+        cleanText(records[n].status, parts[2], 10);
+        n++;
     }
     fclose(f);
     return n;
 }
 ```
 
-- Loads every line of `issues.txt` into the `records[]` array and returns how many lines were read. Same `fgets` + `sscanf` pattern as `loadBooks`.
-- `%9s` reads the status word (`ISSUED` / `RETURNED`). This history file doubles as the **reading history** for recommendations.
+- Loads every line of `issues.txt` into the `records[]` array and returns how many lines were read. Same `fgets` + `splitLine` pattern as `loadBooks`; **3 parts** = `user | bookId | status`.
+- This history file doubles as the **reading history** for recommendations.
 
-### `list.c` lines 173-180
+### `list.c` lines 204-211
 
 ```c
 static void writeRecords(int n) {
@@ -409,7 +457,7 @@ static void writeRecords(int n) {
 
 - The opposite of `readRecords`: writes the whole `records[]` array back to `issues.txt` (mode `"w"` overwrites). Needed when a line changes from ISSUED to RETURNED.
 
-### `list.c` lines 182-198
+### `list.c` lines 213-229
 
 ```c
 /* give a book to a user: mark it not available and add an ISSUED line.
@@ -434,7 +482,7 @@ int issueBook(const char *user, int id) {
 - `findById` (hashing) gets the book. Not found -> 0. Already issued -> -1.
 - Otherwise: `available = 0`, `timesIssued++`, then `fopen(..., "a")` (**append**) adds one new line `user|id|ISSUED` to the history, and `saveBooks()` updates `books.txt`. Returns 1.
 
-### `list.c` lines 200-217
+### `list.c` lines 231-248
 
 ```c
 /* take a book back: change that user's ISSUED line to RETURNED and mark the
@@ -460,7 +508,7 @@ int returnBook(const char *user, int id) {
 - Loads the history; looks for a line with **this user + this book id + status ISSUED** (so nobody can return someone else's book).
 - Found: change the status to `RETURNED` (`strcpy`), `writeRecords` saves the file, set the book `available = 1`, `saveBooks`. Return 1. Not found -> 0.
 
-### `list.c` lines 219-225
+### `list.c` lines 250-256
 
 ```c
 /* ids of all books this user has ever borrowed (used by the recommender) */
@@ -475,7 +523,7 @@ int getUserHistory(const char *user, int ids[], int max) {
 - Collects the ids of **every** book this user has ever borrowed (issued or returned) into the array `ids[]`, and returns the count. `max` stops it from overflowing the array.
 - Used only by the recommender (`oop.cpp`).
 
-### `list.c` lines 227-242
+### `list.c` lines 258-273
 
 ```c
 void showUserHistory(const char *user) {
@@ -499,7 +547,7 @@ void showUserHistory(const char *user) {
 - Prints the user's history as a table (id, title, status). `found` makes the header print only once, before the first row.
 - `b ? b->title : "(book removed)"` handles a book the admin deleted later.
 
-### `list.c` lines 244-260
+### `list.c` lines 275-291
 
 ```c
 /* admin report: who currently holds which book */
@@ -528,9 +576,9 @@ void displayIssuedBooks(void) {
 
 ## 3. `search.c` - Member 2: hashing, BST, sorting
 
-**Concepts: hashing with chaining, binary search tree, insertion sort. Uses `getHead`, `printBookHeader`, `displayBook` from list.c.**
+**Concepts: hashing with chaining, binary search tree, bubble sort. Uses `getHead`, `printBookHeader`, `displayBook` from list.c.**
 
-### `search.c` lines 1-28
+### `search.c` lines 1-31
 
 ```c
 /* ====================================================================
@@ -541,7 +589,7 @@ void displayIssuedBooks(void) {
  *           "Sorting by title, author, or popularity"
  * TOPICS  : 1) HASHING (chaining)          -> find a book by its ID
  *           2) BINARY SEARCH TREE (BST)    -> find a book by its title
- *           3) SORTING (insertion sort)    -> by title / author / popularity
+ *           3) SORTING (bubble sort)       -> by title / author / popularity
  * NOT HERE: linked list & files -> list.c (Member 1)
  *           menus, recommendation -> oop.cpp (Member 3)
  *
@@ -561,48 +609,60 @@ void displayIssuedBooks(void) {
 #include <string.h>
 #include <ctype.h>
 #include "library.h"
+
+/* ---------------- A. helpers ---------------- */
+#define BUF 200      /* big enough for any title or search word we compare */
 ```
 
 - Header: owner Member 2; topics = **hashing**, **BST**, **sorting**. Important line: the hash table and BST store only **pointers** to the nodes made in `list.c` - no data is copied.
 - `<ctype.h>` provides `tolower` (to ignore upper/lower case).
 
-### `search.c` lines 30-39
+### `search.c` lines 33-39
 
 ```c
-/* ---------------- A. helpers ---------------- */
-/* compare two texts ignoring upper/lower case (like strcmp) */
+/* copy src into dest in lower case (so "HARRY" and "harry" look the same) */
+static void toLower(const char *src, char *dest) {
+    int i;
+    for (i = 0; src[i] != '\0' && i < BUF - 1; i++)
+        dest[i] = (char)tolower((unsigned char)src[i]);
+    dest[i] = '\0';
+}
+```
+
+- Copies `src` into `dest` with every letter converted to lower case (`tolower`). The loop stops at `BUF - 1` characters, so even a very long search word cannot overflow the array (test T13).
+- Everything that must ignore upper/lower case first goes through this function.
+
+### `search.c` lines 41-48
+
+```c
+/* compare two texts ignoring upper/lower case. Result like strcmp:
+   negative = a comes first, 0 = same, positive = b comes first */
 static int compareText(const char *a, const char *b) {
-    while (*a && *b) {
-        int x = tolower((unsigned char)*a), y = tolower((unsigned char)*b);
-        if (x != y) return x - y;
-        a++; b++;
-    }
-    return tolower((unsigned char)*a) - tolower((unsigned char)*b);
+    char x[BUF], y[BUF];
+    toLower(a, x);
+    toLower(b, y);
+    return strcmp(x, y);
 }
 ```
 
-- Like `strcmp` but **ignores case**, so `HARRY` equals `harry`. It walks both texts together, comparing lower-cased characters. Returns negative (a before b), 0 (same), or positive (a after b).
-- `(unsigned char)` cast keeps `tolower` safe for unusual characters.
+- Like `strcmp` but **ignores case**, so `HARRY` equals `harry`: lower-case both texts with `toLower`, then plain `strcmp`. Returns negative (a before b), 0 (same), or positive (a after b).
 
-### `search.c` lines 41-50
+### `search.c` lines 50-56
 
 ```c
-/* does "text" contain "word" (ignoring case)? */
+/* does "text" contain "word" anywhere (ignoring case)? 1 = yes, 0 = no */
 static int containsText(const char *text, const char *word) {
-    int i, j, tl = (int)strlen(text), wl = (int)strlen(word);
-    for (i = 0; i + wl <= tl; i++) {
-        for (j = 0; j < wl; j++)
-            if (tolower((unsigned char)text[i + j]) != tolower((unsigned char)word[j])) break;
-        if (j == wl) return 1;
-    }
-    return 0;
+    char x[BUF], y[BUF];
+    toLower(text, x);
+    toLower(word, y);
+    return strstr(x, y) != NULL;
 }
 ```
 
-- "Is `word` somewhere inside `text`?" (case ignored). Outer loop = start position in the text, inner loop = compare the word letter by letter. If all `wl` letters match (`j == wl`) -> found.
+- "Is `word` somewhere inside `text`?" (case ignored). Lower-case both, then `strstr` (a standard function that finds a text inside another text) returns non-NULL if found.
 - Used for the partial title search (`harry` inside `Harry Potter and ...`).
 
-### `search.c` lines 52-64
+### `search.c` lines 58-70
 
 ```c
 /* ================= B. HASHING (by book ID) =================
@@ -624,7 +684,7 @@ static int hashId(int id) { return id % HASH_SIZE; }
 - Example: `105 % 101 = 4` -> slot 4. `201 % 101 = 100` -> slot 100.
 - *Collision*: ids 101, 202, 303, 404 all give slot 0. They are *chained*: each slot holds a small linked list of `HNode`s (`book` pointer + `next`).
 
-### `search.c` lines 66-73
+### `search.c` lines 72-79
 
 ```c
 static void hashInsert(Book *b) {
@@ -639,7 +699,7 @@ static void hashInsert(Book *b) {
 
 - Computes the slot, `malloc`s a hash node holding the **pointer** to the book, and puts it at the **front** of that slot's chain (`n->next = table[h]; table[h] = n;`).
 
-### `search.c` lines 75-83
+### `search.c` lines 81-89
 
 ```c
 static void hashClear(void) {
@@ -655,7 +715,7 @@ static void hashClear(void) {
 
 - Empties all 101 slots, freeing every chain node (not the books themselves - those belong to `list.c`). Called before rebuilding.
 
-### `search.c` lines 85-92
+### `search.c` lines 91-98
 
 ```c
 Book *findById(int id) {
@@ -671,7 +731,7 @@ Book *findById(int id) {
 - Jump straight to slot `id % 101` and check only that slot's short chain. Match -> return the book pointer, else `NULL`.
 - This is why ID search is almost instant, even with thousands of books.
 
-### `search.c` lines 94-101
+### `search.c` lines 100-107
 
 ```c
 /* ================= C. BINARY SEARCH TREE (by title) =================
@@ -687,7 +747,7 @@ static TNode *root = NULL;
 - **Binary Search Tree** node: a book pointer plus a `left` and a `right` child. Rule: **smaller title (A-Z) goes left, bigger goes right**.
 - `root` = the top node of the tree.
 
-### `search.c` lines 103-116
+### `search.c` lines 109-122
 
 ```c
 static TNode *bstInsert(TNode *node, Book *b) {
@@ -709,7 +769,7 @@ static TNode *bstInsert(TNode *node, Book *b) {
 - *Recursive* (calls itself). Empty spot found (`node == NULL`) -> create the node there.
 - Otherwise compare titles: smaller -> insert into the left subtree, else (bigger or equal) -> right subtree. The returned pointer re-attaches the (possibly new) subtree.
 
-### `search.c` lines 118-123
+### `search.c` lines 124-129
 
 ```c
 static void bstClear(TNode *node) {
@@ -722,7 +782,7 @@ static void bstClear(TNode *node) {
 
 - Frees the whole tree: clear left, clear right, then free this node (children first, otherwise we would lose them).
 
-### `search.c` lines 125-134
+### `search.c` lines 131-140
 
 ```c
 Book *findByTitle(const char *title) {
@@ -739,7 +799,7 @@ Book *findByTitle(const char *title) {
 
 - **Exact** title search: start at `root`, compare; equal -> found, smaller -> go left, bigger -> go right. Each step throws away about half of the remaining titles, so it is fast. Not found -> `NULL`.
 
-### `search.c` lines 136-152
+### `search.c` lines 142-158
 
 ```c
 /* in-order walk = titles come out in A-Z order */
@@ -766,7 +826,7 @@ int searchTitleContains(const char *word) {
 - `int *count` is a pointer so every recursive call updates the **same** counter.
 - `searchTitleContains` just starts the walk at `root` and returns the count (0 = nothing found).
 
-### `search.c` lines 154-164
+### `search.c` lines 160-173
 
 ```c
 /* ---- D. build / rebuild both structures from the linked list ---- */
@@ -780,17 +840,18 @@ void buildIndexes(void) {
         root = bstInsert(root, cur);
     }
 }
+
+/* ================= E. SORTING (bubble sort) =================
+   mode 1 = title A-Z, mode 2 = author A-Z, mode 3 = most issued first */
 ```
 
 - Clears the old hash table and tree, then walks the linked list **once** and inserts every book into both.
 - Called after load, add and delete. (Issue/return only change fields inside the same nodes, so no rebuild is needed.)
 
-### `search.c` lines 166-173
+### `search.c` lines 175-180
 
 ```c
-/* ================= E. SORTING (insertion sort) =================
-   mode 1 = title A-Z, mode 2 = author A-Z, mode 3 = most issued first */
-/* returns >0 if a should come AFTER b for the chosen mode */
+/* returns 1 if book a must come AFTER book b for the chosen mode */
 static int isAfter(const Book *a, const Book *b, int mode) {
     if (mode == 1) return compareText(a->title, b->title) > 0;
     if (mode == 2) return compareText(a->author, b->author) > 0;
@@ -801,38 +862,41 @@ static int isAfter(const Book *a, const Book *b, int mode) {
 - The only part that changes between the three sort modes. Returns true if book `a` must come **after** `b`:
   mode 1 = title A-Z, mode 2 = author A-Z, mode 3 = fewer issues goes later (so **most issued first**).
 
-### `search.c` lines 175-197
+### `search.c` lines 182-207
 
 ```c
 void showSorted(int mode) {
+    Book *arr[MAX_BOOKS];       /* pointers to the books (the linked list itself is not changed) */
+    Book *cur, *temp;
     int n = 0, i, j;
-    Book *cur, *key, **arr;
-    for (cur = getHead(); cur != NULL; cur = cur->next) n++;
-    if (n == 0) { printf("No books in the library.\n"); return; }
-    arr = (Book **)malloc(n * sizeof(Book *));
-    if (arr == NULL) return;
-    i = 0;
-    for (cur = getHead(); cur != NULL; cur = cur->next) arr[i++] = cur;
 
-    for (i = 1; i < n; i++) {            /* insertion sort */
-        key = arr[i];
-        j = i - 1;
-        while (j >= 0 && isAfter(arr[j], key, mode)) {
-            arr[j + 1] = arr[j];
-            j--;
-        }
-        arr[j + 1] = key;
+    for (cur = getHead(); cur != NULL && n < MAX_BOOKS; cur = cur->next) {
+        arr[n] = cur;
+        n++;
     }
+    if (n == 0) { printf("No books in the library.\n"); return; }
+
+    /* bubble sort: compare neighbours, swap them if they are in the wrong order.
+       After each round the "biggest" item has moved to the end. */
+    for (i = 0; i < n - 1; i++) {
+        for (j = 0; j < n - 1 - i; j++) {
+            if (isAfter(arr[j], arr[j + 1], mode)) {
+                temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+
     printBookHeader();
     for (i = 0; i < n; i++) displayBook(arr[i]);
-    free(arr);
 }
 ```
 
-- Counts the books, makes an array `arr` of **pointers** to them (the linked list order is untouched).
-- **Insertion sort**: `arr[0..i-1]` is already sorted. Take `key = arr[i]`, slide every bigger item one step right (`arr[j+1] = arr[j]`), drop `key` into the gap. Repeat for all `i`.
-- Print the sorted array, `free(arr)`.
-- Mini example sorting `5, 2, 4`: `[5,2,4]` -> insert 2 -> `[2,5,4]` -> insert 4 -> `[2,4,5]`.
+- Copies pointers to all books into a **fixed array** `arr[MAX_BOOKS]` (the linked list order is untouched) and counts them in `n`.
+- **Bubble sort**: compare neighbours `arr[j]` and `arr[j+1]`; if `isAfter(...)` says they are in the wrong order, swap them. After each round of the inner loop the "biggest" item has moved to the end, so the next round can stop one place earlier (`n - 1 - i`).
+- Print the sorted array. Nothing to free (fixed array).
+- Mini example sorting `5, 2, 4`: round 1: `[5,2,4]` -> `[2,5,4]` -> `[2,4,5]`; round 2: no swap needed -> sorted.
 
 
 ---
@@ -841,7 +905,7 @@ void showSorted(int mode) {
 
 **Concepts: classes, inheritance, polymorphism (virtual functions).**
 
-### `oop.h` lines 1-25
+### `oop.h` lines 1-23
 
 ```cpp
 // ====================================================================
@@ -850,17 +914,15 @@ void showSorted(int mode) {
 // PPT     : "OOP model (Book, User, Library) with inheritance & polymorphism",
 //           "Role-based access for Student and Admin accounts",
 //           "Personalized recommendations by genre, author & reading history"
-// TOPICS  : 1) CLASSES       - User, Student, Admin, Rule, Recommender
-//           2) INHERITANCE   - Student and Admin inherit User;
-//                              GenreRule and AuthorRule inherit Rule
-//           3) POLYMORPHISM  - virtual menu() and virtual score()
+// TOPICS  : 1) CLASSES       - User, Student, Admin, Recommender
+//           2) INHERITANCE   - Student and Admin inherit User
+//           3) POLYMORPHISM  - virtual menu(): same call, different menu per role
 // NOT HERE: linked list / files -> list.c, hashing / BST / sorting -> search.c
 //
 // CLASS MAP
-//   User (abstract)               Rule (abstract)
-//    |-- Student                   |-- GenreRule
-//    |-- Admin                     |-- AuthorRule
-//                                Recommender  (uses the Rule classes)
+//   User (abstract)        Recommender (separate class: suggests books)
+//    |-- Student
+//    |-- Admin
 // ====================================================================
 #ifndef OOP_H
 #define OOP_H
@@ -875,7 +937,7 @@ void showSorted(int mode) {
 - `#ifndef OOP_H ... #endif` = include guard (read only once).
 - Then the includes: `<string>` (C++ text type `std::string`), our `library.h` (so C++ can use `Book`, `findById` ...), and the users-file path `USERS_FILE`.
 
-### `oop.h` lines 27-29
+### `oop.h` lines 25-27
 
 ```cpp
 // ---------- small input helpers ----------
@@ -885,65 +947,30 @@ int readInt(const char *prompt);
 
 - Declarations of two input helpers (written in `oop.cpp`): `readLine` reads a full line, `readInt` reads a number.
 
-### `oop.h` lines 31-42
+### `oop.h` lines 29-33
 
 ```cpp
-// ---------- recommendation rules (POLYMORPHISM) ----------
-// A Rule gives a score to a book. Each child class decides HOW it scores,
-// but the Recommender calls them all in the same way: rule->score(book).
-class Rule {
-protected:
-    int history[MAX_HISTORY];      // ids of the books the user has borrowed before
-    int count;                     // how many ids are stored
-public:
-    Rule(const int ids[], int n);
-    virtual ~Rule() {}
-    virtual int score(const Book *b) = 0;   // pure virtual: children must define it
-};
+// ---------- recommendation (genre + author + reading history) ----------
+// Gives every book the user has NOT read a score and prints the best ones:
+//   +2 points for every book in the history with the same genre
+//   +3 points for every book in the history with the same author
+#define TOP_BOOKS 5            // how many suggestions to show
 ```
 
-- **Class** = data + functions together. `Rule` is an **abstract base class**: `virtual int score(...) = 0;` (a *pure virtual function*) means "every child must write its own `score`"; you cannot create a plain `Rule` object.
-- `protected:` members (`history`, `count`) are visible to child classes but not to outsiders. They store the ids of books the user borrowed.
-- `virtual ~Rule() {}` = *virtual destructor*: deleting a child through a `Rule*` cleans up correctly.
+- The comment explains the scoring in two lines. `TOP_BOOKS` = how many suggestions are shown (5).
 
-### `oop.h` lines 44-48
+### `oop.h` lines 35-38
 
 ```cpp
-class GenreRule : public Rule {            // +2 for every past book of the same genre
-public:
-    GenreRule(const int ids[], int n) : Rule(ids, n) {}
-    int score(const Book *b);
-};
-```
-
-- **Inheritance**: `: public Rule` means GenreRule *is a* Rule and gets `history` and `count` for free. Its constructor passes the data up with `: Rule(ids, n)`. It only promises to define `score` (+2 per same-genre history book).
-
-### `oop.h` lines 50-54
-
-```cpp
-class AuthorRule : public Rule {           // +3 for every past book of the same author
-public:
-    AuthorRule(const int ids[], int n) : Rule(ids, n) {}
-    int score(const Book *b);
-};
-```
-
-- Same shape as `GenreRule`; its `score` gives +3 per same-author history book.
-
-### `oop.h` lines 56-61
-
-```cpp
-// Reads the user's reading history, scores every unread book with the
-// rules above and prints the best ones.
 class Recommender {
 public:
-    void recommend(const std::string &user, int topN);
+    void recommend(const std::string &user);
 };
 ```
 
-- One function, `recommend(user, topN)`: reads the history, scores every unread book with the rules, prints the best `topN`.
+- A class with **one** function, `recommend(user)`. It is a normal class (no inheritance needed): it reads the history, scores every unread book and prints the best `TOP_BOOKS`. Written in `oop.cpp`.
 
-### `oop.h` lines 63-78
+### `oop.h` lines 40-55
 
 ```cpp
 // ---------- users (INHERITANCE + role-based access) ----------
@@ -968,7 +995,7 @@ public:
 - `getRole()` and `menu()` are **pure virtual** -> Student and Admin must each write their own. This is what makes `u->menu()` behave differently per role (*polymorphism*).
 - The three normal functions at the bottom (`searchByTitle`, `searchById`, `viewSorted`) are written **once** in `User` and inherited by both children.
 
-### `oop.h` lines 80-85
+### `oop.h` lines 57-62
 
 ```cpp
 class Student : public User {
@@ -981,7 +1008,7 @@ public:
 
 - Child of `User` (`: public User`). Provides `getRole()` (returns `"Student"`) and declares `menu()` (code in `oop.cpp`). The constructor passes the name up to `User`.
 
-### `oop.h` lines 87-96
+### `oop.h` lines 64-73
 
 ```cpp
 class Admin : public User {
@@ -998,7 +1025,7 @@ private:
 
 - Child of `User`. Besides `menu()` it has three `private:` helper functions that only the Admin class can call: add a book, remove a book, add a student account. A Student object has none of these = **role-based access**.
 
-### `oop.h` lines 98-101
+### `oop.h` lines 75-78
 
 ```cpp
 // login: returns a new Student or Admin object, or NULL if name/password is wrong
@@ -1028,7 +1055,7 @@ User *loginUser(const std::string &name, const std::string &password);
 //
 // SECTIONS IN THIS FILE
 //   A. input helpers
-//   B. recommendation rules + Recommender   (genre, author, reading history)
+//   B. Recommender                          (genre, author, reading history)
 //   C. features common to all users         (User class)
 //   D. Student menu
 //   E. Admin menu
@@ -1075,135 +1102,80 @@ int readInt(const char *prompt) {
 
 - Reads a line, then `atoi` converts text to a number. Letters give `0`, which the menus treat as "Logout/Exit" or "Invalid" - the program never crashes on bad input.
 
-### `oop.cpp` lines 40-45
+### `oop.cpp` lines 40-99
 
 ```cpp
-// ================= B. recommendation rules =================
-// Rule stores the user's reading history; children decide the scoring.
-Rule::Rule(const int ids[], int n) {
-    count = n;
-    for (int i = 0; i < n; i++) history[i] = ids[i];
-}
-```
-
-- The `Rule` constructor copies the user's history ids into the object. `Rule::Rule` = "the function Rule inside class Rule".
-
-### `oop.cpp` lines 47-55
-
-```cpp
-// +2 points for every book in the history that has the SAME GENRE
-int GenreRule::score(const Book *b) {
-    int s = 0;
-    for (int i = 0; i < count; i++) {
-        Book *old = findById(history[i]);          // hashing lookup (search.c)
-        if (old != NULL && strcmp(old->genre, b->genre) == 0) s += 2;
-    }
-    return s;
-}
-```
-
-- For every book in the history: `findById` (hashing) gets the old book; if its **genre** equals the candidate's genre (`strcmp(...) == 0`), add 2. Example: history has 2 Fantasy books -> a Fantasy candidate gets 4.
-
-### `oop.cpp` lines 57-65
-
-```cpp
-// +3 points for every book in the history that has the SAME AUTHOR
-int AuthorRule::score(const Book *b) {
-    int s = 0;
-    for (int i = 0; i < count; i++) {
-        Book *old = findById(history[i]);
-        if (old != NULL && strcmp(old->author, b->author) == 0) s += 3;
-    }
-    return s;
-}
-```
-
-- Same idea with **author**, +3 each. (Author counts more than genre because the same writer is a stronger hint.)
-
-### `oop.cpp` lines 67-136
-
-```cpp
+// ================= B. Recommender =================
 // Recommend books for one user:
-//   1. read the user's reading history (data/issues.txt via list.c)
-//   2. give every book the user has NOT read a score = genre points + author points
-//   3. sort by score (highest first) and print the top N
-void Recommender::recommend(const string &user, int topN) {
+//   1. read the user's reading history (data/issues.txt, through list.c)
+//   2. every book the user has NOT read gets a score:
+//        +2 for each history book with the same genre
+//        +3 for each history book with the same author
+//   3. sort by score (highest first) and print the top books
+void Recommender::recommend(const string &user) {
     int history[MAX_HISTORY];
     int n = getUserHistory(user.c_str(), history, MAX_HISTORY);
 
-    if (n == 0) {                       // recommendation needs reading history
+    if (n == 0) {                       // no history = nothing to learn from
         cout << "No reading history yet. Issue a few books first,\n"
              << "then ask again - suggestions are based on what you have read.\n";
         return;
     }
 
-    // two different rules, both used through the SAME base-class pointer type
-    Rule *rules[2];
-    rules[0] = new GenreRule(history, n);
-    rules[1] = new AuthorRule(history, n);
+    Book *cand[MAX_BOOKS];              // books that can be recommended
+    int score[MAX_BOOKS];               // score of each of those books
+    int m = 0;                          // how many candidates we have
 
-    int total = 0;                      // count the books in the library
-    for (Book *b = getHead(); b != NULL; b = b->next) total++;
-
-    Book **cand = new Book *[total + 1];    // candidate books
-    int *score = new int[total + 1];        // their scores
-    int m = 0;
-
-    for (Book *b = getHead(); b != NULL; b = b->next) {
-        bool alreadyRead = false;
-        for (int i = 0; i < n; i++)
-            if (history[i] == b->id) alreadyRead = true;
-        if (alreadyRead) continue;          // never recommend a book already read
-
+    // ---- step 2: score every book ----
+    for (Book *b = getHead(); b != NULL && m < MAX_BOOKS; b = b->next) {
         int s = 0;
-        for (int r = 0; r < 2; r++) s += rules[r]->score(b);   // POLYMORPHIC call
-        if (s > 0) {                        // keep only books that match something
-            cand[m] = b;
-            score[m] = s;
-            m++;
+        bool alreadyRead = false;
+        for (int i = 0; i < n; i++) {
+            if (history[i] == b->id) { alreadyRead = true; break; }
+            Book *old = findById(history[i]);          // a book the user read earlier
+            if (old == NULL) continue;                 // that book was deleted later
+            if (strcmp(old->genre, b->genre) == 0) s += 2;
+            if (strcmp(old->author, b->author) == 0) s += 3;
+        }
+        if (alreadyRead || s == 0) continue;           // skip read books and no-match books
+        cand[m] = b;
+        score[m] = s;
+        m++;
+    }
+
+    // ---- step 3: bubble sort, highest score first ----
+    for (int i = 0; i < m - 1; i++) {
+        for (int j = 0; j < m - 1 - i; j++) {
+            if (score[j] < score[j + 1]) {             // wrong order -> swap both arrays
+                Book *tb = cand[j];  cand[j] = cand[j + 1];   cand[j + 1] = tb;
+                int ts = score[j];   score[j] = score[j + 1]; score[j + 1] = ts;
+            }
         }
     }
 
-    // insertion sort, highest score first (equal scores keep file order)
-    for (int i = 1; i < m; i++) {
-        Book *kb = cand[i];
-        int ks = score[i];
-        int j = i - 1;
-        while (j >= 0 && score[j] < ks) {
-            cand[j + 1] = cand[j];
-            score[j + 1] = score[j];
-            j--;
-        }
-        cand[j + 1] = kb;
-        score[j + 1] = ks;
-    }
-
+    // ---- print ----
     if (m == 0) {
         cout << "No similar unread books found right now.\n";
-    } else {
-        cout << "Based on your reading history (genre and author):\n";
-        printf("%-5s %-40s %-20s %-12s %s\n", "ID", "Title", "Author", "Genre", "Score");
-        printf("---------------------------------------------------------------------------------------\n");
-        for (int i = 0; i < m && i < topN; i++)
-            printf("%-5d %-40.40s %-20.20s %-12.12s %d\n", cand[i]->id, cand[i]->title,
-                   cand[i]->author, cand[i]->genre, score[i]);
+        return;
     }
-
-    delete[] cand;
-    delete[] score;
-    for (int i = 0; i < 2; i++) delete rules[i];
+    cout << "Based on your reading history (genre and author):\n";
+    printf("%-5s %-40s %-20s %-12s %s\n", "ID", "Title", "Author", "Genre", "Score");
+    printf("---------------------------------------------------------------------------------------\n");
+    for (int i = 0; i < m && i < TOP_BOOKS; i++)
+        printf("%-5d %-40.40s %-20.20s %-12.12s %d\n", cand[i]->id, cand[i]->title,
+               cand[i]->author, cand[i]->genre, score[i]);
 }
 ```
 
 Step by step:
 1. `getUserHistory` (C) fills `history[]` with the ids this user borrowed. **No history -> print a message and return** (nothing to learn from).
-2. `Rule *rules[2]` holds a `GenreRule` and an `AuthorRule` created with `new`, **both through the base-class pointer type**.
-3. Count the books, then `new` two arrays: `cand` (candidate books) and `score` (their scores).
-4. For each book in the library: skip it if the user already read it; otherwise `s = sum of rules[r]->score(b)`. This is the **polymorphic call** - the loop does not know which rule it is calling; each runs its own `score`. Keep only books with `s > 0`.
-5. **Insertion sort** on `cand`/`score` together, highest score first (equal scores keep file order).
-6. Print the top `topN` with `printf`. Finally `delete[]` the arrays and `delete` the rules (every `new` needs a `delete`).
+2. Two fixed arrays: `cand[]` (candidate books) and `score[]` (their scores); `m` counts the candidates.
+3. For each book in the library: if its id is in the history, mark it `alreadyRead`. For every history book, `findById` gets the old book; same **genre** -> `s += 2`, same **author** -> `s += 3`.
+4. Skip books already read or with `s == 0`; keep the rest.
+5. **Bubble sort** on `cand` and `score` together (swap both arrays at the same time), highest score first (equal scores keep file order).
+6. Print the top `TOP_BOOKS` with `printf`. No `new`/`delete` is used here.
 
-### `oop.cpp` lines 138-151
+### `oop.cpp` lines 101-114
 
 ```cpp
 // ================= C. common user features (User class) =================
@@ -1224,7 +1196,7 @@ void User::searchByTitle() {
 
 - Reads the text. **First** tries `findByTitle` (BST exact match) - found: print and stop. **Otherwise** `searchTitleContains` (BST in-order walk) prints all partial matches in A-Z order; if it returns 0, say "No book found".
 
-### `oop.cpp` lines 153-159
+### `oop.cpp` lines 116-122
 
 ```cpp
 void User::searchById() {
@@ -1238,7 +1210,7 @@ void User::searchById() {
 
 - Reads a number, `findById` (hash table). `NULL` -> "No book with ID". Else print one row.
 
-### `oop.cpp` lines 161-166
+### `oop.cpp` lines 124-129
 
 ```cpp
 void User::viewSorted() {
@@ -1251,7 +1223,7 @@ void User::viewSorted() {
 
 - Asks 1 = title, 2 = author, 3 = popularity; checks the range; calls `showSorted(mode)` from `search.c`.
 
-### `oop.cpp` lines 168-203
+### `oop.cpp` lines 131-166
 
 ```cpp
 // ================= D. Student (child of User) =================
@@ -1286,17 +1258,17 @@ void Student::menu() {
             else cout << "You have not issued a book with this ID.\n";
         }
         else if (choice == 6) showUserHistory(username.c_str());
-        else if (choice == 7) rec.recommend(username, 5);
+        else if (choice == 7) rec.recommend(username);
         else if (choice != 0) cout << "Invalid choice.\n";
     } while (choice != 0);
 }
 ```
 
 - A `do { ... } while (choice != 0)` loop: show options, read a number, run the matching feature, repeat until `0` (Logout).
-- Options 1-3 are the inherited common features. 4 and 5 call `issueBook` / `returnBook` with `username` (so every action is for **this** student) and explain the return code (1 ok, 0 no such book, -1 already issued). 6 = `showUserHistory`. 7 = `rec.recommend(username, 5)`.
+- Options 1-3 are the inherited common features. 4 and 5 call `issueBook` / `returnBook` with `username` (so every action is for **this** student) and explain the return code (1 ok, 0 no such book, -1 already issued). 6 = `showUserHistory`. 7 = `rec.recommend(username)`.
 - `username.c_str()` converts the C++ `string` into the plain C text the C functions expect.
 
-### `oop.cpp` lines 205-220
+### `oop.cpp` lines 168-183
 
 ```cpp
 // ================= E. Admin (child of User) =================
@@ -1310,16 +1282,16 @@ void Admin::addNewBook() {
         cout << "Title, author and genre cannot be empty.\n";
         return;
     }
-    if (addBook(id, title.c_str(), author.c_str(), genre.c_str()))
-        cout << "Book added.\n";
-    else
-        cout << "A book with this ID already exists.\n";
+    int r = addBook(id, title.c_str(), author.c_str(), genre.c_str());
+    if (r == 1) cout << "Book added.\n";
+    else if (r == 0) cout << "A book with this ID already exists.\n";
+    else cout << "The library is full (maximum " << MAX_BOOKS << " books).\n";
 }
 ```
 
-- Reads id, title, author, genre. Checks: id must be positive, no empty fields. Then `addBook` (C): returns 1 -> "Book added", 0 -> "already exists".
+- Reads id, title, author, genre. Checks: id must be positive, no empty fields. Then `addBook` (C): returns 1 -> "Book added", 0 -> "already exists", -1 -> "library is full".
 
-### `oop.cpp` lines 222-228
+### `oop.cpp` lines 185-191
 
 ```cpp
 void Admin::removeBook() {
@@ -1333,25 +1305,30 @@ void Admin::removeBook() {
 
 - Calls `deleteBook` and turns its code into a message: 1 deleted, 0 no such id, -1 "currently issued, cannot be deleted".
 
-### `oop.cpp` lines 230-240
+### `oop.cpp` lines 193-208
 
 ```cpp
 // users.txt line:  name|password|role
+// returns true if a user with this name is already in the file
 static bool userExists(const string &name) {
     FILE *f = fopen(USERS_FILE, "r");
-    char line[200], u[NAME_LEN];
+    char line[200];
+    char *parts[3];
     if (f == NULL) return false;
     while (fgets(line, sizeof(line), f) != NULL) {
-        if (sscanf(line, "%29[^|]|", u) == 1 && name == u) { fclose(f); return true; }
+        if (splitLine(line, parts, 3) == 3 && name == parts[0]) {   // splitLine is in list.c
+            fclose(f);
+            return true;
+        }
     }
     fclose(f);
     return false;
 }
 ```
 
-- Reads `users.txt` line by line; `sscanf(line, "%29[^|]|", u)` takes just the username (text before the first `|`). Returns true if it equals `name`. Used so two accounts cannot share a username.
+- Reads `users.txt` line by line; `splitLine` cuts it into name | password | role. Returns true if `parts[0]` equals `name`. Used so two accounts cannot share a username.
 
-### `oop.cpp` lines 242-257
+### `oop.cpp` lines 210-225
 
 ```cpp
 void Admin::addStudentAccount() {
@@ -1374,7 +1351,7 @@ void Admin::addStudentAccount() {
 
 - Reads username and password. Rejects empty values, a `|` character (it would break the file format) or a name longer than 29 characters. Checks `userExists`. Then appends `name|password|student` to `users.txt` (mode `"a"`).
 
-### `oop.cpp` lines 259-282
+### `oop.cpp` lines 227-250
 
 ```cpp
 void Admin::menu() {
@@ -1405,7 +1382,7 @@ void Admin::menu() {
 
 - Same loop pattern as the student menu, with admin options: add/delete book, sorted list, searches (inherited), issued-books report (`displayIssuedBooks`), create student account. **A student object has no way to reach these** (role-based access).
 
-### `oop.cpp` lines 284-301
+### `oop.cpp` lines 252-270
 
 ```cpp
 // ================= F. login (role-based access) =================
@@ -1413,13 +1390,14 @@ void Admin::menu() {
 // returned as a User* - the caller does not need to know which one it is.
 User *loginUser(const string &name, const string &password) {
     FILE *f = fopen(USERS_FILE, "r");
-    char line[200], u[NAME_LEN], p[NAME_LEN], role[20];
+    char line[200];
+    char *parts[3];                     // parts[0]=name, parts[1]=password, parts[2]=role
     if (f == NULL) return NULL;
     while (fgets(line, sizeof(line), f) != NULL) {
-        if (sscanf(line, "%29[^|]|%29[^|]|%19s", u, p, role) != 3) continue;
-        if (name == u && password == p) {
+        if (splitLine(line, parts, 3) != 3) continue;      // skip bad / blank line
+        if (name == parts[0] && password == parts[1]) {    // both must match
             fclose(f);
-            if (strcmp(role, "admin") == 0) return new Admin(name);
+            if (strcmp(parts[2], "admin") == 0) return new Admin(name);
             return new Student(name);
         }
     }
@@ -1428,8 +1406,8 @@ User *loginUser(const string &name, const string &password) {
 }
 ```
 
-- Reads `users.txt` line by line, splitting `name | password | role`. If **both** name and password match: role `admin` -> `new Admin(name)`, otherwise `new Student(name)`. No match -> `NULL`.
-- Return type is `User*` - the caller (main) never needs to know which child it got.
+- Reads `users.txt` line by line and cuts each line with `splitLine` (`parts[0]` name, `parts[1]` password, `parts[2]` role). A line without 3 parts is skipped. If **both** name and password match: role `admin` -> `new Admin(name)`, otherwise `new Student(name)`. No match -> `NULL`.
+- Return type is `User*` - the caller (main) never needs to know which child it got. `main.cpp` does `delete u` after logout.
 
 
 ---
@@ -1512,6 +1490,6 @@ int main() {
 1. `main.cpp` starts -> `loadBooks()` fills the **linked list** (`list.c`) and builds the **hash table + BST** (`search.c`).
 2. `loginUser()` (`oop.cpp`) returns a **Student** or **Admin** object; `menu()` is chosen by **polymorphism**.
 3. Menu actions call the C functions declared in `library.h`; every change is saved to `data/*.txt`.
-4. Recommendation (`Recommender`) reads the history from `issues.txt`, scores unread books with `GenreRule` + `AuthorRule`, and prints the best five.
+4. Recommendation (`Recommender`) reads the history from `issues.txt`, scores unread books (genre +2, author +3), and prints the best five.
 
 For who-calls-whom tables, memory ownership and full traces see `Deep_Dive.md`.

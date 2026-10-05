@@ -8,18 +8,20 @@
 - **Why a linked list?** Easy add/delete without shifting. Weakness: no direct jump to n-th book; append walks the list (O(n)).
 - **How is a book deleted?** Find the node, link previous node to next, `free` it. Not allowed if the book is issued.
 - **How does return work?** Find the `ISSUED` line for that user and book in `issues.txt`, change to `RETURNED`, mark book available.
-- **Why `%59[^|]` in sscanf?** Reads text up to the `|` separator and never more than 59 characters (prevents overflow).
+- **What does `splitLine` do?** Uses `strtok` to cut a line at every `|` into parts (name, password, ...). A line with the wrong number of parts is skipped, so one bad line cannot crash the program.
+- **How is overflow prevented?** Text is copied with `cleanText`/`strncpy` into fixed-size arrays, so long text is cut instead of overflowing.
 
 ## Member 2 (search.c, main.cpp)
 - **Hash function?** `id % 101`. Collisions handled by chaining (a small list per slot). Average lookup O(1).
 - **Why is BST compared ignoring case?** So `HARRY` and `harry` match. In-order walk gives A-Z order.
 - **BST weakness?** Not balanced: titles inserted in sorted order make it a chain (O(n)). Fix: AVL tree. (Sample data is deliberately unsorted.)
-- **Why insertion sort?** Simple, stable, fine for hundreds of books; O(n^2) for big data.
+- **Why bubble sort?** Easiest sort to explain: compare neighbours, swap if wrong order. Fine for hundreds of books; O(n^2) for big data.
+- **Why a fixed array of pointers in `showSorted`?** Sorting pointers leaves the linked list untouched; a fixed array (MAX_BOOKS 500) avoids malloc mistakes.
 - **Why do hash table and BST store pointers?** No duplicate data; an issue/return updates the book everywhere. They are rebuilt on add/delete/load.
 
 ## Member 3 (oop.cpp)
-- **Where is inheritance?** `Student` and `Admin` inherit `User`; `GenreRule` and `AuthorRule` inherit `Rule`.
-- **Where is polymorphism?** `user->menu()` runs the Student or Admin menu; `rules[r]->score(book)` runs the right rule.
+- **Where is inheritance?** `Student` and `Admin` inherit `User`; `User` is abstract (pure virtual `getRole()` and `menu()`).
+- **Where is polymorphism?** `user->menu()` runs the Student or Admin menu; the caller never needs to know which child object it holds.
 - **Why a virtual destructor?** So `delete` on a base pointer cleans the child object correctly.
 - **How does recommendation score?** Genre +2 per matching past book, author +3 per matching past book. Already-read books excluded, only scores above 0 shown, top 5.
 - **New user with no history?** Recommendation is based on reading history, so the program asks them to issue a few books first.

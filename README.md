@@ -11,18 +11,19 @@ Nothing outside these concepts is used (no STL containers, no database, no exter
 |---|---|
 | `src/library.h` | Shared header (Book struct + C function list, `extern "C"` for C++) |
 | `src/list.c` | Linked list, file handling, add / delete / issue / return, history |
-| `src/search.c` | Hashing (by ID), BST (by title), insertion sort |
-| `src/oop.h`, `src/oop.cpp` | User / Student / Admin classes, recommendation rules, login |
+| `src/search.c` | Hashing (by ID), BST (by title), bubble sort |
+| `src/oop.h`, `src/oop.cpp` | User / Student / Admin classes, simple recommender (genre +2, author +3), login |
 | `src/main.cpp` | Login screen + main loop |
 | `data/` | `books.txt`, `users.txt`, `issues.txt` (live data) |
 | `data_sample/` | Untouched copy of the sample data (copy back to reset) |
-| `run_tests.sh` | Runs 14 scripted tests, prints PASS/FAIL (`bash run_tests.sh`) |
+| `run_tests.sh` | Runs 17 scripted tests, prints PASS/FAIL (`bash run_tests.sh`) |
 | `docs/test_output.txt` | Saved output of the last test run |
 | `docs/Project_Report.docx` | Full project report |
 | `docs/Viva_QnA.md` | Likely viva questions with simple answers |
 | `docs/Code_Walkthrough.md` | Explains every folder, file, function and concept in plain language |
 | `docs/Code_Explained.md` | EVERY source file shown with its code and an explanation under each part |
 | `docs/Language_and_Compiler.md` | Which language is used where, which compiler, build steps, common errors |
+| `docs/Debugging_Guide.md` | Step-by-step debugging with real error messages (compile, link, gdb, valgrind) |
 | `docs/Deep_Dive.md` | Who calls whom, who owns data, call chain per menu option, line-by-line code explanation |
 | `Makefile` | Build file |
 
@@ -61,7 +62,7 @@ Always run from the project folder (data files are opened as `data/books.txt`).
 Everyone: read all code once, and be able to demo + explain your own files.
 
 ## Known limits (also in report)
-Plain-text passwords, unbalanced BST, insertion sort for big lists, one copy per book, no due dates/fines.
+Plain-text passwords, unbalanced BST, bubble sort (slow for very big lists), one copy per book, no due dates/fines.
 
 ## Where to find each member's work in the code
 Every source file starts with a comment block that says **OWNER**, **TOPICS** (which course concept it uses),
